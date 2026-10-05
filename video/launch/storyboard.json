@@ -1,0 +1,11 @@
+[
+  {"id":"intro","title":"Less waiting. More campus life.","lines":["Meet Theeska Poo.","Campus printing, with a little less waiting, and a lot more freedom."]},
+  {"id":"login","title":"Your campus. Your account.","lines":["Start with your verified college email.","One account takes you straight to your student workspace."]},
+  {"id":"upload","title":"Pages counted. Automatically.","lines":["Add your PDF or supported image.","Theeska Poo counts the pages automatically, so you don't have to."]},
+  {"id":"settings","title":"Your print. Your way.","lines":["Choose copies, colour, and print settings.","Your fixed total updates as you go.","Twelve black and white pages? Sixty rupees."]},
+  {"id":"payment","title":"Place it. Pay your way.","lines":["Place your order.","Scan the QR, open a supported UPI app on your phone, or pay at collection.","Online payments are confirmed by the recipient."]},
+  {"id":"slot","title":"A place for every print.","lines":["Every order gets a dated collection code: an hourly slot, plus a number.","Assigned from order time, it helps the shop organise your prints."]},
+  {"id":"shop","title":"The counter, under control.","lines":["Behind the counter, operators see documents, settings, and payments together.","They can pause new orders when busy, then mark completed prints ready to collect."]},
+  {"id":"collect","title":"Ready. Set. Collect.","lines":["See Ready to collect? Head to the shop with your code.","After handover, the order moves to history."]},
+  {"id":"outro","title":"PRINT. PICK UP. POOO!","lines":["Upload. Print. Pick up. Theeska Poo.","Built for campus life, by Tech Titans."]}
+]

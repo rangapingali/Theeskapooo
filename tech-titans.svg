@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 224 56" role="img" aria-labelledby="title desc">
+  <title id="title">Tech Titans</title>
+  <desc id="desc">Twin T monogram in a green hexagonal shield, beside the Tech Titans wordmark.</desc>
+  <path fill="#214f3c" d="M26 2 49 15v26L26 54 3 41V15Z"/>
+  <path fill="#fff" d="M12 17h27v6H29v18l-6-3V23H12Z"/>
+  <path fill="#b9d68c" d="M17 27h18v5h-5v9l-5 3V32h-8Z"/>
+  <path stroke="#b9d68c" stroke-width="1.5" fill="none" d="m7 17 19-11 19 11"/>
+  <text x="62" y="25" font-family="Arial,sans-serif" font-size="18" font-weight="800" letter-spacing="1.7" fill="#214f3c">TECH TITANS</text>
+  <text x="63" y="41" font-family="Arial,sans-serif" font-size="8" font-weight="600" letter-spacing="2.25" fill="#71845e">IDEAS INTO IMPACT</text>
+</svg>

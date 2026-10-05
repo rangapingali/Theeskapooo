@@ -1,0 +1,10 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "kitswApp": {
+      "orders": { ".indexOn": ["uid", "createdAt"] },
+      "testOrders": { ".indexOn": ["uid", "createdAt"] }
+    }
+  }
+}

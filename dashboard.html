@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><link rel="icon" type="image/svg+xml" href="theeskapooo-icon.svg"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#214f3c"><title>Student dashboard · THEESKAPOOO</title>
+  <link rel="stylesheet" href="styles.css?v=student-ux-6"><link rel="stylesheet" href="dashboard.css?v=student-ux-6">
+  <script src="firebase-config.js" defer></script><script src="auth-service.js" defer></script>
+  <script src="document-pages.js?v=student-ux-6" defer></script><script src="print-core.js" defer></script><script src="order-service.js?v=student-ux-6" defer></script><script src="order-alerts.js?v=student-ux-6" defer></script><script src="dashboard.js?v=student-ux-6" defer></script>
+</head>
+<body class="dashboard">
+  <aside class="sidebar">
+    <a class="brand product-brand" href="index.html" aria-label="THEESKAPOOO home"><img class="product-logo" src="theeskapooo-logo.svg" width="460" height="112" alt="THEESKAPOOO - Print. Pick up. Pooo!"></a>
+    <span class="nav-caption">STUDENT WORKSPACE</span>
+    <nav aria-label="Dashboard"><button class="nav-item active" data-view="new" aria-current="page"><span aria-hidden="true">⊕</span> New print order</button><button class="nav-item" data-view="orders"><span aria-hidden="true">▤</span> My orders <b id="order-count">0</b></button><button class="nav-item" data-view="guide"><span aria-hidden="true">ⓘ</span> Printing guide</button><a id="operator-nav" class="nav-item" href="operator.html" hidden>Shop dashboard</a></nav>
+    <div class="sidebar-note"><span aria-hidden="true">✦</span><strong>A little less paper.<br>A little more planet.</strong><p>Choose double-sided printing when you can.</p></div>
+    <div class="sidebar-team"><span>CRAFTED ON CAMPUS BY</span><img src="tech-titans.svg" alt="Tech Titans" width="184" height="46"></div>
+  </aside>
+  <div class="workspace">
+    <header class="dashboard-header"><div><span class="breadcrumb">Workspace <span>/</span> <strong id="breadcrumb-current">New print order</strong></span></div><div class="user-menu"><span class="avatar" aria-hidden="true">S</span><a hidden id="operator-link" class="quiet" href="operator.html">Operator dashboard</a><button id="sound-alerts" class="quiet" type="button" title="Play an alert for ready orders and confirmed payments while this dashboard is open">Enable sound alerts</button><span id="student-email">Connecting…</span><button id="dashboard-signout" class="quiet">Sign out</button></div></header>
+    <main class="dashboard-main">
+      <div id="mode-banner" class="notice" role="status">Checking your student account…</div>
+      <div id="shop-availability" class="notice" role="status" hidden></div>
+      <div id="global-message" class="notice error-notice" role="alert" hidden></div>
+      <div id="order-alert" class="notice order-alert" role="status" aria-live="polite" hidden></div><section id="new-view" aria-labelledby="dashboard-title">
+        <div class="page-heading"><div><p class="eyebrow">FROM YOUR SCREEN TO YOUR HANDS</p><h1 id="dashboard-title">Let’s get it printed.</h1><p>Upload your files. Make them yours. We’ll take it from there.</p></div><span class="campus-pill">● KITSW campus</span></div>
+        <div class="order-layout"><div class="order-builder">
+          <section class="panel"><div class="panel-heading"><span class="step-number">01</span><div><h2>Your documents</h2><p>Add up to 10 files · 25 MB each · 100 MB per order</p></div></div>
+            <label class="drop-zone" id="drop-zone" for="file-input"><span class="upload-symbol" aria-hidden="true">↥</span><strong>Drop your files here, or <u>browse files</u></strong><span>PDF, Office documents &amp; images</span><input id="file-input" type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.odt,.ods,.odp,.rtf,.txt,.csv,.jpg,.jpeg,.png,.webp,.heic,.heif,.bmp,.gif,.tif,.tiff"></label>
+            <p class="microcopy">Files are private and scheduled for deletion 24 hours after collection or cancellation. Abandoned uploads expire after 48 hours. PDF and supported image pages are counted automatically. For Office files, text and other images, enter the page count shown in your document’s Print Preview. The shop checks manually entered counts.</p>
+            <div id="file-list" class="file-list"></div><p id="file-feedback" class="inline-message" role="status" hidden></p>
+          </section>
+          <section class="panel" id="settings-panel"><div class="panel-heading"><span class="step-number">02</span><div><h2>Make it your way</h2><p>Settings apply to the selected file.</p></div></div>
+            <div id="settings-empty" class="empty-settings">Add a document above to choose its print settings.</div>
+            <fieldset id="settings-fields" disabled><legend class="sr-only">Print settings for selected file</legend>
+              <div class="selected-file"><span>EDITING</span><strong id="selected-name">No file selected</strong><button type="button" id="preview-file" class="quiet">Preview file ↗</button></div>
+              <div class="setting-grid">
+                <label>Copies<input id="copies" type="number" value="1" min="1" max="500" step="1"></label>
+                <label>Document pages<input readonly aria-describedby="page-source" id="pages" type="number" value="1" min="1" max="10000" step="1"><small id="page-source">Automatic where supported; enter manually when asked.</small></label>
+                <label>Print colour<select id="colour"><option value="bw">Black &amp; white</option><option value="colour">Full colour</option></select></label>
+                <label>Print sides<select id="sides"><option value="single">Single-sided</option><option value="double">Double-sided</option></select></label>
+                <label>Paper size<select id="size"><option>A4</option><option>A3</option><option>Letter</option><option>Legal</option></select></label>
+                <label>Orientation<select id="orientation"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></label>
+                <label class="wide-field">Page range<input id="range" placeholder="All pages, or e.g. 1-5, 8, 11-13" maxlength="200"><small>Leave empty to print all pages. Repeated page numbers count once.</small></label>
+                <label>Pages per printed side<select id="layout"><option value="1">1 page</option><option value="2">2 pages</option><option value="4">4 pages</option></select></label>
+                <label>Finishing (per copy)<select id="binding"><option value="none">No binding</option></select></label>
+              </div><button type="button" id="apply-all" class="quiet">Apply these settings to all files</button><p class="microcopy">Page counts and ranges stay individual to each file.</p>
+            </fieldset>
+          </section>
+          <section class="panel"><div class="panel-heading"><span class="step-number">03</span><div><h2>Pickup &amp; payment</h2><p>Choose what works for your day.</p></div></div>
+            <div class="setting-grid"><label>Collection point<select id="shop"><option value="campus">THEESKAPOOO - KITSW</option></select></label><label>Pickup preference<select id="pickup"><option value="when-ready">When ready</option><option value="later">Choose a time</option></select></label><label id="pickup-time-label" class="wide-field" hidden>Preferred pickup time<input id="pickup-time" type="datetime-local"><small>A request, subject to shop hours and queue availability.</small></label><label class="wide-field">Instructions for the shop <span class="optional">(optional)</span><textarea id="notes" rows="3" maxlength="500" placeholder="For example: keep each document separate."></textarea></label></div>
+            <label class="priority-choice"><input type="checkbox" id="urgent-order"><span><strong>Need it urgently? Add priority · +₹8</strong><small>One fee per order. Highlighted for the shop and shown first in its queue. Completion depends on shop capacity; this is not a guaranteed pickup time.</small></span></label><fieldset class="payment-options"><legend>How would you like to pay?</legend><label class="payment-choice"><input type="radio" name="payment" value="offline" checked><span><strong>Pay at collection</strong><small>You can switch to online payment before collecting.</small></span><span aria-hidden="true">₹</span></label><label class="payment-choice"><input type="radio" name="payment" value="online"><span><strong>Pay online after placing your order</strong><small>Pay by UPI; recipient confirmation may be required.</small></span><span aria-hidden="true">↗</span></label></fieldset>
+            <p class="microcopy">Shop hours (IST): normal days 9:00 AM to 5:30 PM; exam days 8:30 AM to 5:30 PM.</p><p class="microcopy">UPI app availability depends on your device and payment provider. FamApp/FamPay support must be confirmed during merchant testing. Never enter your UPI PIN on this website.</p>
+          </section>
+        </div>
+        <aside class="order-summary panel"><div class="summary-top"><h2>Your print summary</h2><span aria-hidden="true">▤</span></div><div id="summary-files" class="summary-files">Your documents will appear here.</div><dl><div><dt>Documents</dt><dd id="total-files">0</dd></div><div><dt>Printed sides</dt><dd id="total-sides">0</dd></div><div><dt>Sheets of paper</dt><dd id="total-sheets">0</dd></div></dl><p id="priority-summary" class="priority-badge" hidden>Urgent priority fee: ₹8 included in total</p><div class="price-row"><span>Order total</span><strong id="total-price">₹0.00</strong></div><p class="estimate-note">All paper sizes: &#8377;5 B&W / &#8377;10 colour per printed side. Binding is currently unavailable. Double-sided saves paper; no discount is assumed.</p><div class="time-estimate"><span aria-hidden="true">◷</span><div><strong id="total-time">Add files for an estimate</strong><small>Printing time only. Queue, shop hours and finishing may add time.</small></div></div><p id="summary-error" class="inline-message" role="status" hidden></p><label class="consent"><input id="review-confirm" type="checkbox"><span>I have checked my files and print settings.</span></label><button type="button" id="place-order" class="primary-action" disabled>Place order <span aria-hidden="true">→</span></button><p id="upload-progress" role="status" class="microcopy"></p><p class="summary-footnote">Your total uses your page count, print settings and any priority fee. Check the page range before ordering.</p></aside>
+        </div>
+      </section>
+      <section id="orders-view" hidden aria-labelledby="orders-title"><div class="page-heading"><div><p class="eyebrow">YOUR CAMPUS PRINT TRAIL</p><h1 id="orders-title">My orders</h1><p>Your orders and collection codes in one place.</p></div><button class="secondary-action" id="refresh-orders">Refresh orders</button></div><div class="order-filters" aria-label="Filter orders"><button data-filter="all" aria-pressed="true">Active orders</button><button data-filter="active" aria-pressed="false">Order placed</button><button data-filter="ready" aria-pressed="false">Ready to collect</button><button data-filter="completed" aria-pressed="false">History</button></div><p id="orders-message" role="status" class="inline-message" hidden></p><div id="orders-list"></div></section>
+      <section id="guide-view" hidden aria-labelledby="guide-title"><div class="page-heading"><div><p class="eyebrow">A BETTER PRINT, EVERY TIME</p><h1 id="guide-title">Before you hit print.</h1></div></div><div class="guide-grid"><article class="panel"><h2>Keep your layout intact</h2><p>PDF is best for assignments and reports. Word, slides and spreadsheets are accepted with a manual page count, but their layout can change on another computer. PDF is recommended when layout must stay exact.</p></article><article class="panel"><h2>Know your page count</h2><p>Each still image counts as one page; multipage TIFF files include every detected page. PDF and supported image pages are counted automatically. Office documents and other formats ask for a page count from Print Preview. The shop checks these counts before printing. Page ranges and copies update your price.</p></article><article class="panel"><h2>Pay your way</h2><p>Pay at the counter, or pay online after placing your order. Offline orders keep the online option until collection. A pending payment is not a successful payment.</p></article><article class="panel"><h2>Collect when it’s ready</h2><p>Wait for “Ready to collect” in My orders. Bring your order reference. Time estimates do not include the shop’s live queue.</p></article></div></section>
+      <footer class="dashboard-footer"><span>© 2026 THEESKAPOOO</span><span>Built for students, one page at a time.</span><a href="https://www.kitsw.ac.in/" target="_blank" rel="noopener noreferrer">College website ↗</a></footer>
+    </main>
+  </div>
+  <dialog id="preview-dialog"><div class="dialog-heading"><h2 id="preview-title">Document preview</h2><button id="close-preview" class="quiet" aria-label="Close preview">✕</button></div><div id="preview-content"></div><p class="microcopy">Preview is for reference. Orientation, ranges and finishing are instructions for the shop.</p></dialog>
+  <dialog id="payment-dialog">
+    <div class="dialog-heading"><h2>Payment details</h2><button id="close-payment" class="quiet" aria-label="Close payment">&#10005;</button></div>
+    <p id="payment-message" role="status"></p>
+    <p class="microcopy">Check the actual receiver name and amount shown by your UPI app. Our expected name is not bank verification. Never enter your UPI PIN here.</p>
+    <button id="pay-at-collection" class="secondary-action" type="button">Pay at collection instead</button>
+    <button id="start-payment" class="primary-action" hidden>Continue to payment</button>
+    <section id="manual-payment-fields" hidden>
+      <p class="notice">This is a real transfer to an individual's account. The recipient must check receipt before the app marks the order paid.</p>
+      <p id="manual-recipient"></p><p id="manual-amount"></p>
+      <img id="manual-qr" width="220" height="220" alt="UPI payment QR code">
+      <a id="manual-upi-link" class="primary-action">Choose an installed UPI app</a>
+      <a id="save-qr" class="secondary-action" download="kitsw-payment-qr.png">Save QR to open in your UPI app</a>
+      <button id="copy-upi" class="quiet" type="button">Copy UPI ID</button>
+      <p class="microcopy">On a phone, choose an installed UPI app when prompted, or save this QR and import it in your app. On a laptop, scan it with your phone. If your device or payment app does not support the link, copy the UPI ID. Check the receiver before paying.</p>
+      <form id="manual-payment-form">
+        <label for="manual-reference">Transaction reference / UTR</label>
+        <div class="input-wrap"><input id="manual-reference" required minlength="6" maxlength="40" pattern="[A-Za-z0-9]{6,40}" autocomplete="off" placeholder="Reference from the successful transfer"></div>
+        <label class="consent"><input id="manual-declaration" type="checkbox" required><span>I checked the receiver and completed this payment. I understand confirmation is pending until the recipient checks receipt.</span></label>
+        <button id="submit-manual" class="primary-action" type="submit">Submit for recipient confirmation</button>
+      </form>
+      <p id="manual-feedback" role="status" class="inline-message" hidden></p>
+    </section>
+  </dialog>
+</body></html>

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><link rel="icon" type="image/svg+xml" href="theeskapooo-icon.svg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#174d3d">
+  <meta name="description" content="THEESKAPOOO student portal. Upload your documents, choose your printing preferences, and collect on campus.">
+  <title>Student Login · THEESKAPOOO</title>
+  <link rel="stylesheet" href="styles.css?v=student-ux-6">
+  <script src="firebase-config.js" defer></script>
+  <script src="auth-service.js" defer></script>
+  <script src="app.js?v=student-ux-6" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand product-brand" href="index.html" aria-label="THEESKAPOOO home"><img class="product-logo" src="theeskapooo-logo.svg" width="460" height="112" alt="THEESKAPOOO - Print. Pick up. Pooo!"></a>
+    <span class="campus-tag"><span></span> Made for campus life</span>
+  </header>
+  <main>
+    <section class="intro" aria-labelledby="intro-title">
+      <div class="eyebrow"><span></span> LESS WAITING. MORE LIVING.</div>
+      <h1 id="intro-title">Your documents.<br>Your settings.<br><em>Your time.</em></h1>
+      <p class="intro-copy">From your hostel room to your next lecture.<br class="desktop-break"> Send your files ahead. Pick up your prints on campus.</p>
+      <div class="print-scene" aria-hidden="true">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+        <span class="spark spark-one">✦</span><span class="spark spark-two">+</span>
+        <div class="paper paper-back"></div>
+        <div class="paper paper-front"><div class="paper-heading"><span class="mini-mark">K</span><span>THE NEXT BIG IDEA<small>Starts with a single page.</small></span></div><div class="paper-line long"></div><div class="paper-line"></div><div class="paper-line short"></div><div class="paper-chart"><i></i><i></i><i></i><i></i><i></i></div><div class="paper-line long"></div><div class="paper-line short"></div></div>
+        <div class="ready-tag"><span>✓</span><div>Ready when you are<small>A little less rush in your day.</small></div></div>
+        <div class="file-tag">↥ <span>Assignment.pdf</span> <b>PDF</b></div>
+      </div>
+      <ol class="steps"><li><span>01</span> Upload files</li><li><span>02</span> Set preferences</li><li><span>03</span> Collect prints</li></ol>
+    </section>
+    <section class="login-side" aria-labelledby="login-title">
+      <div class="login-card">
+        <div class="institute"><img src="kitsw-logo.jpg?v=student-ux-6" alt="Kakatiya Institute of Technology and Science logo" width="76" height="76"><p>KAKATIYA INSTITUTE OF<br>TECHNOLOGY &amp; SCIENCE<small>WARANGAL</small></p></div>
+        <div class="divider"></div>
+        <span class="portal-label">STUDENT PORTAL</span>
+        <div class="auth-tabs" aria-label="Account options"><button type="button" data-mode="login" aria-pressed="true">Log in</button><button type="button" data-mode="register" aria-pressed="false">Create account</button></div>
+        <h2 id="login-title">Welcome back.</h2>
+        <p class="login-subtitle">Your next print is just a login away.</p>
+        <form id="login-form" novalidate>
+          <label for="email">College email address</label>
+          <div class="input-wrap"><span aria-hidden="true">@</span><input id="email" name="email" type="email" placeholder="rollnumber@kitsw.ac.in" autocomplete="username" spellcheck="false" autocapitalize="none" required aria-describedby="email-hint email-error"></div>
+          <p class="field-hint" id="email-hint">Use your student email ending in @kitsw.ac.in. You stay signed in on this device until you sign out.</p>
+          <p class="field-error" id="email-error" hidden></p>
+          <div id="password-fields">
+          <label for="password">THEESKAPOOO password</label>
+          <div class="input-wrap password-wrap"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg><input id="password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required aria-describedby="password-error"><button class="password-toggle" type="button" aria-label="Show password" aria-pressed="false">Show</button></div>
+          <p class="field-error" id="password-error" hidden></p>
+          <p id="password-hint" class="field-hint" hidden>Create a separate app password: at least 8 characters, with uppercase, lowercase and a number.</p>
+          </div>
+          <div id="confirm-fields" hidden>
+            <label for="confirm-password">Confirm password</label>
+            <div class="input-wrap"><input id="confirm-password" type="password" autocomplete="new-password" placeholder="Re-enter your app password" aria-describedby="confirm-password-error"></div>
+            <p class="field-error" id="confirm-password-error" hidden></p>
+          </div>
+          <div class="form-options"><span>For KITSW students</span><button type="button" class="text-button" id="forgot-password">Forgot password?</button></div>
+          <button type="submit" class="login-button" id="submit-button">Log in <span aria-hidden="true">→</span></button>
+          <p id="form-status" class="form-status" role="status" hidden></p>
+        </form>
+        <section id="account-panel" hidden aria-label="Account status">
+          <div class="account-badge" id="account-badge">Check your inbox</div>
+          <p id="account-message"></p>
+          <p id="account-email"></p>
+          <a href="dashboard.html" class="login-button" id="open-dashboard" hidden>Open student dashboard →</a>
+          <div id="verification-actions"><button type="button" class="login-button" id="check-verification">I've verified my email</button><button type="button" class="text-button" id="resend-verification">Resend verification email</button></div>
+          <p id="account-status" class="form-status" role="status" hidden></p>
+          <button type="button" class="text-button" id="sign-out">Sign out</button>
+        </section>
+        <button type="button" class="text-button back-login" id="back-login" hidden>← Back to login</button>
+        <div class="student-note"><span aria-hidden="true">ⓘ</span><p>One campus. One print stop.<br><span>Use your college email to get started.</span></p></div>
+        <p class="preview-note" id="service-note" role="status">Checking account service…</p>
+      </div>
+      <p class="below-card">A simpler way to print. A little more time for you.</p>
+      <p class="below-card"><a href="dashboard.html?preview=1">Explore the dashboard preview →</a></p>
+    </section>
+  </main>
+  <footer><span>© 2026 THEESKAPOOO</span><div class="team-credit"><span>Designed &amp; built by</span><img src="tech-titans.svg" width="168" height="42" alt="Tech Titans — Ideas into impact"></div><a href="https://www.kitsw.ac.in/" target="_blank" rel="noopener noreferrer">College website ↗</a></footer>
+</body>
+</html>

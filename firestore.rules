@@ -1,0 +1,8 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Orders and payment fields are accessed only through the authenticated server.
+    // Admin SDK bypasses these rules; server routes enforce ownership.
+    match /{document=**} { allow read, write: if false; }
+  }
+}
