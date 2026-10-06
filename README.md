@@ -17,6 +17,14 @@ See [SETUP.md](SETUP.md), [SUPABASE_SETUP.md](SUPABASE_SETUP.md) and [UX_UPDATES
 
 The current `self_declared` mode creates orders only after a student ticks the payment checkbox and selects Done. It records **Declared paid**, without recipient approval. This is a temporary student declaration; it does not verify a bank transfer. Merchant gateway integration and production payment testing remain necessary for verified payments.
 
+## Netlify frontend deployment
+
+For the complete website and API on one free pilot host, follow [DEPLOYMENT.md](DEPLOYMENT.md). The optional `render.yaml` configures a Free Render Web Service. Server credentials must be entered privately in Render; they are not included in this repository.
+
+`npm run build:web` creates `dist` from an explicit list of browser assets. The included `netlify.toml` sets the build command, publish directory and Node version. Leave the base directory blank. No functions are implemented, and no server secrets belong in this frontend deployment. Push these configuration changes before deploying from GitHub.
+
+This deployment serves the UI only. The current Express API, upload inspection and cleanup worker need a running Node host. Requests use same-origin `/api/*`; connect that path to the deployed backend before using live orders. Until then, the UI correctly reports orders unavailable. Do not set the publish directory to the repository root or use `npm start` as a Netlify build command.
+
 ## Checks and sensitive data
 
 - `npm test` runs automated tests with local fixtures and mocked services.

@@ -1,0 +1,43 @@
+# Optional Render Blueprint. The manual setup is documented in DEPLOYMENT.md.
+# Add firebase-admin.json as a Render Secret File before enabling orders.
+services:
+  - type: web
+    name: theeskapooo
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    buildCommand: npm ci --omit=dev
+    startCommand: node server/index.cjs
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: KITSW_ENABLE_ORDERS
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        value: theeskapooooo-a04b4
+      - key: FIREBASE_DATABASE_URL
+        value: https://theeskapooooo-a04b4-default-rtdb.asia-southeast1.firebasedatabase.app
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: /etc/secrets/firebase-admin.json
+      - key: SUPABASE_URL
+        value: https://iopzmdjsfgnmbqckkjcb.supabase.co
+      - key: SUPABASE_BUCKET
+        value: print-documents
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: PRINT_OPERATOR_EMAILS
+        sync: false
+      - key: PAYMENT_MODE
+        value: self_declared
+      - key: MERCHANT_NAME
+        value: THEESKAPOOO
+      - key: MERCHANT_UPI_REFERENCE
+        sync: false
+      - key: MERCHANT_UPI_ACCOUNT_NAME
+        sync: false
