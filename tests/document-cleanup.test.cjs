@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { cleanupDocuments } = require('../server/document-cleanup.cjs');
+const { cleanupDocuments, deleteOrderDocuments } = require('../server/document-cleanup.cjs');
 test('cleanup deletes eligible documents, retains records and retries failed removal', async () => {
   const now = 200 * 3600000;
   const records = {
@@ -25,4 +25,27 @@ test('cleanup deletes eligible documents, retains records and retries failed rem
   assert.equal(records.orders.old.documentsDeleted, true);
   assert.equal(records.uploadSessions.recent.state, 'ordered');
   assert.equal(records.uploadSessions.pending.state, 'ordered');
+});
+
+test('handover removes documents immediately and retains the order record', async () => {
+  const now = 500000;
+  const records = {
+    uploadSessions: { order1: { state: 'ordered', collection: 'orders', files: { first: { path: 'private/one' }, second: { path: 'private/two' } } } },
+    orders: { order1: { status: 'collected', closedMs: now, documentsDeleted: false, paymentStatus: 'declared_paid', files: [{ path: 'private/one' }, { path: 'private/two' }] } }
+  };
+  const db = {
+    collection: name => ({ doc: id => ({ name, id }) }),
+    runTransaction: async callback => callback({
+      get: async ref => ({ data: () => records[ref.name][ref.id] }),
+      update: (ref, value) => Object.assign(records[ref.name][ref.id], value),
+      set: (ref, value) => { records[ref.name][ref.id] = value; }
+    })
+  };
+  const removed = [];
+  await deleteOrderDocuments({ db, bucket: { remove: async paths => removed.push(...paths) }, collection: 'orders', orderId: 'order1', now });
+  assert.deepEqual(removed, ['private/one', 'private/two']);
+  assert.equal(records.uploadSessions.order1.state, 'deleted');
+  assert.equal(records.orders.order1.documentsDeleted, true);
+  assert.equal(records.orders.order1.paymentStatus, 'declared_paid');
+  assert.equal(records.orders.order1.status, 'collected');
 });

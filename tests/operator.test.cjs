@@ -91,3 +91,93 @@ test('shop actions show immediate saving feedback and reuse the confirmed order 
     assert.equal(listCalls,1);assert.match(d.querySelector('#operator-orders').textContent,/Ready to collect/);
   }finally{dom.window.close();}
 });
+
+test('daily earnings appear at 5:30 PM IST and include student-declared payments marked paid today', async () => {
+  const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'http://localhost/operator.html', runScripts: 'outside-only' });
+  const NativeDate = dom.window.Date;
+  const fixedNow = NativeDate.parse('2026-10-06T12:00:00.000Z');
+  dom.window.Date = class extends NativeDate {
+    constructor(...args) { super(...(args.length ? args : [fixedNow])); }
+    static now() { return fixedNow; }
+  };
+  const todayPaid = [
+    { id: 'today-one', uid: 'student', email: 'student@example.com', status: 'collected', files: [], paymentStatus: 'paid', paymentReceivedMs: NativeDate.parse('2026-10-06T08:00:00.000Z'), quoteAmountPaise: 750, paymentMethod: 'cash' },
+    { id: 'today-two', uid: 'student', email: 'student@example.com', status: 'collected', files: [], paymentStatus: 'paid', paymentReceivedMs: NativeDate.parse('2026-10-06T11:59:00.000Z'), quoteAmountPaise: 500, paymentMethod: 'manual_upi' },
+    { id: 'student-declared', uid: 'student', email: 'student@example.com', status: 'collected', files: [], paymentStatus: 'declared_paid', paymentReceivedMs: NativeDate.parse('2026-10-06T11:00:00.000Z'), quoteAmountPaise: 900 },
+    { id: 'yesterday', uid: 'student', email: 'student@example.com', status: 'collected', files: [], paymentStatus: 'paid', paymentReceivedMs: NativeDate.parse('2026-10-05T12:00:00.000Z'), quoteAmountPaise: 1200 },
+    { id: 'india-date-boundary', uid: 'student', email: 'student@example.com', status: 'collected', files: [], paymentStatus: 'paid', paymentReceivedMs: NativeDate.parse('2026-10-04T22:00:00.000Z'), quoteAmountPaise: 300 },
+    { id: 'two-days-ago', uid: 'student', email: 'student@example.com', status: 'collected', files: [], paymentStatus: 'paid', paymentReceivedMs: NativeDate.parse('2026-10-04T12:00:00.000Z'), quoteAmountPaise: 2500 },
+    { id: 'outside-seven-days', uid: 'student', email: 'student@example.com', status: 'collected', files: [], paymentStatus: 'paid', paymentReceivedMs: NativeDate.parse('2026-09-28T18:29:00.000Z'), quoteAmountPaise: 5000 }
+  ];
+  dom.window.KitswAuth = { current: async () => ({ uid: 'operator', email: 'operator@kitsw.ac.in', emailVerified: true }) };
+  dom.window.OrderService = {
+    me: async () => ({ isOperator: true }),
+    shop: async () => ({ acceptingOrders: true }),
+    operatorOrders: async () => ({ orders: todayPaid })
+  };
+  try {
+    dom.window.eval(fs.readFileSync(path.join(root, 'operator.js'), 'utf8'));
+    await tick();
+    const $ = selector => dom.window.document.querySelector(selector);
+    assert.equal($('#daily-earnings').hidden, false);
+    assert.equal($('#daily-earnings-total').textContent, '₹21.50');
+    assert.equal($('#daily-earnings-count').textContent, '3');
+    assert.match($('#daily-earnings-orders').textContent, /TODAY-ON/);
+    assert.match($('#daily-earnings-orders').textContent, /TODAY-TW/);
+    assert.match($('#daily-earnings-orders').textContent, /STUDENT-4/);
+    assert.doesNotMatch($('#daily-earnings-orders').textContent, /YESTERDAY/);
+    assert.equal($('#earnings-history').hidden, false);
+    const historyDays = [...$('#earnings-history-days').children];
+    assert.equal(historyDays.length, 7);
+    const yesterday = historyDays.find(day => day.dataset.date === '2026-10-05');
+    assert.match(yesterday.textContent, /₹15\.00/);
+    assert.match(yesterday.textContent, /2 payments marked paid/);
+    const twoDaysAgo = historyDays.find(day => day.dataset.date === '2026-10-04');
+    assert.match(twoDaysAgo.textContent, /₹25\.00/);
+    assert.match(historyDays.find(day => day.dataset.date === '2026-09-29').textContent, /₹0\.00/);
+    assert.doesNotMatch(historyDays.map(day => day.textContent).join(' '), /₹50\.00/);
+  } finally { dom.window.close(); }
+});
+
+test('orders past their pickup slot leave the active queue and stay in history', async () => {
+  const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'http://localhost/operator.html', runScripts: 'outside-only' });
+  const NativeDate = dom.window.Date;
+  const fixedNow = NativeDate.parse('2026-10-06T11:00:00.000Z');
+  dom.window.Date = class extends NativeDate {
+    constructor(...args) { super(...(args.length ? args : [fixedNow])); }
+    static now() { return fixedNow; }
+  };
+  const order = (id, endHour) => ({ id, uid: 'student', email: 'student@example.com', status: 'accepted', paymentStatus: 'paid', files: [], quoteAmountPaise: 500, collectionSlot: { date: '2026-10-06', startHour: endHour - 1, endHour, slot: endHour - 8, number: 1 } });
+  dom.window.KitswAuth = { current: async () => ({ uid: 'operator', email: 'operator@kitsw.ac.in', emailVerified: true }) };
+  dom.window.OrderService = { me: async () => ({ isOperator: true }), shop: async () => ({ acceptingOrders: true }), operatorOrders: async () => ({ orders: [order('expired-slot', 16), order('active-slot', 18)] }) };
+  try {
+    dom.window.eval(fs.readFileSync(path.join(root, 'operator.js'), 'utf8'));
+    await tick();
+    const d = dom.window.document;
+    assert.equal(d.querySelector('#count-active').textContent, '1');
+    assert.match(d.querySelector('#operator-orders').textContent, /ACTIVE-S/);
+    assert.doesNotMatch(d.querySelector('#operator-orders').textContent, /EXPIRED-/);
+    d.querySelector('[data-filter=history]').click();
+    assert.match(d.querySelector('#operator-orders').textContent, /EXPIRED-/);
+    assert.match(d.querySelector('#operator-orders').textContent, /Pickup slot passed/);
+    assert.equal(d.querySelector('#operator-orders').querySelector('button'), null);
+  } finally { dom.window.close(); }
+});
+
+test('daily earnings remain hidden before 5:30 PM IST', async () => {
+  const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'http://localhost/operator.html', runScripts: 'outside-only' });
+  const NativeDate = dom.window.Date;
+  const fixedNow = NativeDate.parse('2026-10-06T11:59:00.000Z');
+  dom.window.Date = class extends NativeDate {
+    constructor(...args) { super(...(args.length ? args : [fixedNow])); }
+    static now() { return fixedNow; }
+  };
+  dom.window.KitswAuth = { current: async () => ({ uid: 'operator', email: 'operator@kitsw.ac.in', emailVerified: true }) };
+  dom.window.OrderService = { me: async () => ({ isOperator: true }), shop: async () => ({ acceptingOrders: true }), operatorOrders: async () => ({ orders: [] }) };
+  try {
+    dom.window.eval(fs.readFileSync(path.join(root, 'operator.js'), 'utf8'));
+    await tick();
+    assert.equal(dom.window.document.querySelector('#daily-earnings').hidden, true);
+    assert.equal(dom.window.document.querySelector('#earnings-history').hidden, false);
+  } finally { dom.window.close(); }
+});

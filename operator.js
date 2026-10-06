@@ -5,8 +5,113 @@
   const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value / 100);
   const node = (tag, text, css) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (css) el.className = css; return el; };
   let declarationMode = false;
-  let orders = [], actor, allowed = false, busy = false, filter = 'all';
+  let orders = [], actor, allowed = false, busy = false, filter = 'all', slotVisibility = '';
+  let earningsTimer;
+  const earningsCutoffMinutes = 17 * 60 + 30;
   function message(text) { $('#operator-feedback').textContent = text; $('#operator-feedback').hidden = !text; }
+  function indiaDateKey(date) {
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+    const value = type => parts.find(part => part.type === type).value;
+    return `${value('year')}-${value('month')}-${value('day')}`;
+  }
+  function dateKeyOffset(dateKey, offset) {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day + offset)).toISOString().slice(0, 10);
+  }
+  function paymentsMarkedPaidOn(dateKey) {
+    return orders.filter(order => {
+      if (!['paid', 'declared_paid'].includes(order.paymentStatus) || !Number.isFinite(order.paymentReceivedMs)
+        || !Number.isSafeInteger(order.quoteAmountPaise) || order.quoteAmountPaise <= 0) return false;
+      const receivedAt = new Date(order.paymentReceivedMs);
+      return Number.isFinite(receivedAt.getTime()) && indiaDateKey(receivedAt) === dateKey;
+    });
+  }
+  function isPickupSlotExpired(order, now = Date.now()) {
+    const slot = order.collectionSlot;
+    if (!slot || !/^\d{4}-\d{2}-\d{2}$/.test(slot.date) || !Number.isInteger(slot.endHour) || slot.endHour < 1 || slot.endHour > 24) return false;
+    const end = new Date(`${slot.date}T${String(slot.endHour % 24).padStart(2, '0')}:00:00+05:30`).getTime() + (slot.endHour === 24 ? 24 * 60 * 60 * 1000 : 0);
+    return Number.isFinite(end) && now >= end && !['collected', 'cancelled'].includes(order.status);
+  }
+  function slotVisibilityKey(list = orders) {
+    return JSON.stringify(list.map(order => [order.id, isPickupSlotExpired(order)]));
+  }
+  function indiaClock(date) {
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(date);
+    const value = type => Number(parts.find(part => part.type === type).value);
+    return { minutes: value('hour') * 60 + value('minute'), seconds: value('second') };
+  }
+  function renderEarnings() {
+    const history = $('#earnings-history');
+    history.hidden = !allowed;
+    if (allowed) {
+      const days = $('#earnings-history-days');
+      days.replaceChildren();
+      const today = indiaDateKey(new Date());
+      for (let offset = 1; offset <= 7; offset++) {
+        const dateKey = dateKeyOffset(today, -offset);
+        const received = paymentsMarkedPaidOn(dateKey);
+        const total = received.reduce((sum, order) => sum + order.quoteAmountPaise, 0);
+        const date = new Date(`${dateKey}T12:00:00+05:30`);
+        const item = node('article', undefined, 'panel order-card');
+        item.dataset.date = dateKey;
+        const top = node('div', undefined, 'order-card-top');
+        top.append(
+          node('span', new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(date)),
+          node('strong', money(total))
+        );
+        item.append(top, node('p', `${received.length} ${received.length === 1 ? 'payment' : 'payments'} marked paid`));
+        days.append(item);
+      }
+    }
+
+    const section = $('#daily-earnings');
+    const now = new Date();
+    const clock = indiaClock(now);
+    section.hidden = !allowed || clock.minutes < earningsCutoffMinutes;
+    if (section.hidden) return;
+
+    const today = indiaDateKey(now);
+    const received = paymentsMarkedPaidOn(today)
+      .sort((a, b) => a.paymentReceivedMs - b.paymentReceivedMs);
+    const total = received.reduce((sum, order) => sum + order.quoteAmountPaise, 0);
+    $('#daily-earnings-date').textContent = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'full' }).format(now) + ' · Daily close: 5:30 PM IST';
+    $('#daily-earnings-total').textContent = money(total);
+    $('#daily-earnings-count').textContent = String(received.length);
+    const list = $('#daily-earnings-orders');
+    list.replaceChildren();
+    if (!received.length) {
+      list.append(node('p', 'No payments marked paid today.', 'empty-orders'));
+      return;
+    }
+    received.forEach(order => {
+      const item = node('article', undefined, 'panel order-card');
+      const top = node('div', undefined, 'order-card-top');
+      const heading = node('div');
+      heading.append(node('h2', '#' + order.id.slice(0, 8).toUpperCase()));
+      const time = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit' }).format(new Date(order.paymentReceivedMs));
+      const paymentMethod = order.paymentMethod === 'self_declared_upi' ? 'Student-declared UPI'
+        : order.paymentMethod === 'manual_upi' ? 'Recipient-confirmed UPI'
+          : order.paymentMethod || 'Payment received';
+      heading.append(node('p', `${time} IST · ${paymentMethod}`));
+      top.append(heading, node('strong', money(order.quoteAmountPaise)));
+      item.append(top);
+      list.append(item);
+    });
+  }
+  function scheduleEarningsTransition() {
+    clearTimeout(earningsTimer);
+    if (!allowed) return;
+    const now = new Date();
+    const { minutes, seconds } = indiaClock(now);
+    const refreshAtCutoff = minutes < earningsCutoffMinutes;
+    const nextEventMinutes = refreshAtCutoff ? earningsCutoffMinutes : 24 * 60;
+    const delay = (nextEventMinutes - minutes) * 60_000 - seconds * 1_000 - now.getMilliseconds();
+    earningsTimer = setTimeout(async () => {
+      render();
+      if (refreshAtCutoff) await load();
+      scheduleEarningsTransition();
+    }, Math.max(1_000, delay));
+  }
   function inputField(parent, label, type = 'text') {
     const wrap = node('label', label); const input = node('input'); input.type = type; wrap.append(input); parent.append(wrap); return input;
   }
@@ -59,17 +164,20 @@
     }); area.append(form); card.append(area);
   }
   function render() {
+    renderEarnings();
+    slotVisibility = slotVisibilityKey();
     const list = $('#operator-orders'); list.replaceChildren();
-    const active = orders.filter(order => !['collected','cancelled'].includes(order.status));
+    const active = orders.filter(order => !['collected','cancelled'].includes(order.status) && !isPickupSlotExpired(order));
     $('#count-active').textContent = active.length;
     $('#count-payments').textContent = active.filter(o => o.paymentStatus === 'pending_verification').length;
     $('#count-ready').textContent = active.filter(o => o.status === 'ready').length;
-    const selected = filter === 'history' ? orders.filter(o => ['collected','cancelled'].includes(o.status)) : active.filter(order => filter === 'all' || (filter === 'pending' ? order.paymentStatus === 'pending_verification' : order.status === filter));
+    const selected = filter === 'history' ? orders.filter(order => ['collected','cancelled'].includes(order.status) || isPickupSlotExpired(order)) : active.filter(order => filter === 'all' || (filter === 'pending' ? order.paymentStatus === 'pending_verification' : order.status === filter));
     if (!selected.length) { list.append(node('div', allowed ? 'No orders in this queue.' : 'Operator access is required to view orders.', 'panel empty-orders')); return; }
     selected.sort((a,b) => Number(b.priority === true) - Number(a.priority === true) || new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
     selected.forEach(order => {
       const card = node('article', undefined, 'panel order-card' + (order.priority ? ' priority-order' : ''));
       if (order.priority) card.append(node('strong', 'URGENT · Priority order · ₹8 extra included', 'priority-badge'));
+      const slotExpired = isPickupSlotExpired(order);
       const labels = { accepted: 'New order', submitted: 'Older order', printing: 'Printing', ready: 'Ready to collect', collected: 'Collected', cancelled: 'Cancelled', unpaid: 'Unpaid', paid: 'Paid', declared_paid: 'Declared paid (student)', pending_verification: 'Payment to check', rejected: 'Payment not confirmed' };
       const top = node('div', undefined, 'order-card-top'); const heading = node('div');
       const title = node('h2', '#' + order.id.slice(0, 8).toUpperCase()); title.title = order.id;
@@ -93,6 +201,7 @@
       });
       card.append(node('p', `Order total: ${Number.isInteger(order.quoteAmountPaise) ? money(order.quoteAmountPaise) : 'Legacy order - contact student'} | Pickup: ${order.pickupTime ? new Date(order.pickupTime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + ' IST' : 'When ready'}`, 'microcopy'));
       if (order.notes) card.append(node('p', 'Student note: ' + order.notes, 'notice'));
+      if (slotExpired) { card.append(node('p', 'Pickup slot passed. This order is archived from the active queue; the order record is retained.', 'notice')); list.append(card); return; }
       if (order.uid === actor.uid) { card.append(node('p', 'This is your student order. Another authorized operator must handle its payment and status.', 'notice')); list.append(card); return; }
       if (['collected', 'cancelled'].includes(order.status)) { list.append(card); return; }
       paymentReview(card, order);
@@ -171,7 +280,7 @@
     catch (error) { message(error.message); }
     finally { renderShop(); }
   });
-  start().then(renderShop);
+  start().then(() => { renderShop(); scheduleEarningsTransition(); });
   // Fetch new approvals without erasing a receipt review being edited.
   let editing = false, polling = false;
   $('#operator-orders').addEventListener('input', () => { editing = true; });
@@ -183,7 +292,8 @@
       await refreshShop();
       if (editing) return;
       const latest = (await api.operatorOrders()).orders;
-      if (!busy && !editing && JSON.stringify(latest) !== JSON.stringify(orders)) { orders = latest; render(); }
+      const slotChanged = slotVisibilityKey(latest) !== slotVisibility;
+      if (!busy && !editing && (slotChanged || JSON.stringify(latest) !== JSON.stringify(orders))) { orders = latest; render(); }
     } catch { message('Could not refresh approvals. Use Refresh to retry.'); }
     finally { polling = false; }
   }, 10000);

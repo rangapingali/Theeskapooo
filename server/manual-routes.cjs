@@ -46,13 +46,14 @@ module.exports = function manualRoutes(app, deps) {
       const order=owned(await tx.get(ref),req.student.uid);
       if(['paid','declared_paid'].includes(order.paymentStatus)){updated=order;return;}
       logic.checkPayable(order);
-      const patch={paymentStatus:'declared_paid',paymentMethod:'self_declared_upi',paymentVerification:'student_declaration',paymentDeclaredAt:FieldValue.serverTimestamp(),paymentDeclaredBy:req.student.uid,paymentReviewNote:'Student declared payment; not bank-verified'};
+      const patch={paymentStatus:'declared_paid',paymentMethod:'self_declared_upi',paymentVerification:'student_declaration',paymentDeclaredAt:FieldValue.serverTimestamp(),paymentReceivedMs:Date.now(),paymentDeclaredBy:req.student.uid,paymentReviewNote:'Student declared payment; not bank-verified'};
       tx.update(ref,patch);audit(tx,ref,req.student,'student_payment_declared',{amountPaise:order.quoteAmountPaise});updated={...order,...patch};
     },ref);
     res.json({order:publicOrder({id:ref.id,data:()=>updated})});
   });
   app.use('/api/operator', (req, res, next) => operator(req.student) ? next() : next(fail(403, 'This account does not have operator access. Your student account is unchanged.')));
   app.get('/api/operator/orders', async (req, res) => {
+    await require('./offline-numbers.cjs').expireOfflineOrders(db,paymentConfig.ordersCollection);
     const list = await db.collection(paymentConfig.ordersCollection).orderBy('createdAt', 'desc').get();
     res.json({ orders: list.docs.map(s => ({ ...publicOrder(s), uid: s.data().uid, email: s.data().email, notes: s.data().notes, reviewStatus: s.data().reviewStatus, lockedAmountPaise: s.data().lockedAmountPaise || null, providerOrderId: s.data().providerOrderId || null })) });
   });
@@ -73,6 +74,7 @@ module.exports = function manualRoutes(app, deps) {
         if (previous.exists && previous.data().orderId !== ref.id) throw fail(409, 'This reference has already paid another order.');
         tx.set(referenceRef, { orderId: ref.id, confirmedBy: req.student.uid, confirmedAt: FieldValue.serverTimestamp() });
         patch.paidAt = FieldValue.serverTimestamp();
+        patch.paymentReceivedMs = Date.now();
       }
       tx.update(ref, { ...patch, paymentReviewedAt: FieldValue.serverTimestamp() });
       updated = { ...order, ...patch };
@@ -81,12 +83,17 @@ module.exports = function manualRoutes(app, deps) {
   });
   app.post('/api/operator/orders/:id/cash', async (req, res) => {
     const ref = refFor(req.params.id);
+    await require('./offline-numbers.cjs').expireOfflineOrders(db,paymentConfig.ordersCollection);
     let updated;
     await db.runTransaction(async tx => {
       const s = await tx.get(ref); if (!s.exists) throw fail(404, 'Order not found.'); const order = s.data();
+      if (require('./offline-numbers.cjs').isExpired(order)) throw fail(409,'The payment grace period has ended. This offline order has expired.');
+      if (order.offlineNumber && req.body.studentPresent !== true) throw fail(409,'Confirm the student is present and match their offline identification number.');
+      if (order.paymentStatus === 'paid' && order.paymentMethod === 'cash' && order.paymentConfirmedBy === req.student.uid && req.body.receiptChecked === true && req.body.amountPaise === order.quoteAmountPaise) { updated = order; return; }
       if (order.uid === req.student.uid || req.body.receiptChecked !== true || order.paymentStatus !== 'unpaid' || (order.lockedAmountPaise && req.body.noUpiReceived !== true) || order.providerOrderId || order.reviewStatus !== 'approved' || !Number.isInteger(order.quoteAmountPaise) || order.quoteAmountPaise <= 0 || order.quoteAmountPaise !== req.body.amountPaise || ['cancelled','collected'].includes(order.status)) throw fail(409, 'Cash requires another student\'s unpaid order and confirmation that no UPI transfer was received.');
-      tx.update(ref, { paymentStatus: 'paid', paymentMethod: 'cash', paidAt: FieldValue.serverTimestamp(), paymentConfirmedBy: req.student.uid });
-      updated = { ...order, paymentStatus: 'paid', paymentMethod: 'cash' };
+      const patch = { paymentStatus: 'paid', paymentMethod: 'cash', paidAt: FieldValue.serverTimestamp(), paymentReceivedMs: Date.now(), paymentConfirmedBy: req.student.uid };
+      tx.update(ref, patch);
+      updated = { ...order, ...patch };
       audit(tx, ref, req.student, 'cash_received', { amountPaise: order.quoteAmountPaise });
     }, ref); res.json({ ok: true, order: publicOrder({ id: ref.id, data: () => updated }) });
   });
@@ -96,16 +103,27 @@ module.exports = function manualRoutes(app, deps) {
     await db.runTransaction(async tx => {
       const s = await tx.get(ref); if (!s.exists) throw fail(404, 'Order not found.');
       if (s.data().uid === req.student.uid) throw fail(403, 'Ask another operator to handle your own order.');
+      if (req.body.status === 'printing' && s.data().paymentPreference === 'offline' && req.body.studentPresent !== true) throw fail(409,'Offline documents can only be printed while the student is present.');
       if (req.body.status === 'printing' && s.data().files.some(file => file.pageCountSource === 'manual') && req.body.pagesChecked !== true) throw fail(409, 'Check the student-entered page counts before printing.');
       const patch = logic.statusPatch(s.data(), req.body.status);
       if (['collected', 'cancelled'].includes(patch.status)) patch.closedMs = Date.now();
+      if (patch.closedMs) await require('./offline-numbers.cjs').releaseOfflineNumber(tx,db,s.data(),ref.id,paymentConfig.ordersCollection);
       tx.update(ref, patch); audit(tx, ref, req.student, 'status_changed', patch);
       updated = { ...s.data(), ...patch };
-    }, ref); res.json({ ok: true, order: publicOrder({ id: ref.id, data: () => updated }) });
+    }, ['collected','cancelled'].includes(req.body.status) ? undefined : ref);
+    if (updated.status === 'collected') {
+      try {
+        await require('./document-cleanup.cjs').deleteOrderDocuments({ db, bucket, collection: paymentConfig.ordersCollection, orderId: ref.id });
+        updated = { ...updated, documentsDeleted: true };
+      } catch {
+        throw fail(503, 'The order was handed over, but document removal is pending. The server will retry; refresh the order before taking further action.');
+      }
+    }
+    res.json({ ok: true, order: publicOrder({ id: ref.id, data: () => updated }) });
   });
   app.get('/api/operator/orders/:id/files/:index', async (req, res) => {
     const s = await refFor(req.params.id).get(); if (!s.exists) throw fail(404, 'Order not found.');
-    if (s.data().documentsDeleted) throw fail(410, 'Documents were deleted under the retention policy.');
+    if (s.data().documentsDeleted || s.data().status === 'collected') throw fail(410, 'Documents are unavailable after the order is handed over.');
     if (!/^\d+$/.test(req.params.index)) throw fail(404, 'Document not found.');
     const file = s.data().files[Number(req.params.index)]; if (!file) throw fail(404, 'Document not found.');
     res.attachment(file.name); res.set('Content-Type', 'application/octet-stream');
