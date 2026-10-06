@@ -1,5 +1,15 @@
 # Student and shop experience
 
+## Current payment flow
+
+`PAYMENT_MODE=self_declared` uses **upload → QR/UPI payment → checkbox → Done → order placed**. Preparing payment creates a private checkout draft, not a shop order or collection slot. Closing checkout keeps the selected files. Done requires explicit student confirmation; the server checks the saved draft, upload ownership and fixed total before atomically creating the order and its collection code. Repeated submissions reuse the same order ID.
+
+The stored status is `declared_paid`, displayed as **Declared paid — student confirmation**. This is a temporary trust-based payment flow, not bank verification. There is no recipient approval, UTR entry or cash choice for new orders in this mode. The shop can print and hand over declared-paid orders. Old unpaid/pending orders can be confirmed by their owner without paying twice. Payment declarations and ready-to-collect transitions can play the supplied audio after sound alerts are enabled.
+
+If saving fails after a transfer, keep checkout open and retry Done; do not transfer again. Drafts expire after 24 hours, and abandoned documents are removed after 48 hours. Contact the shop if a paid checkout has expired or the shop pauses while payment is in progress. A merchant gateway and verified callbacks must replace this declaration flow before relying on automatic bank confirmation. Legacy manual/gateway modes remain separate; switching modes requires testing their own workflows.
+
+The preview pages still demonstrate the older example payment flow and never transfer money. Use a configured local server for the current payment-first workflow.
+
 - Firebase login now uses local persistence. Closing/reopening the browser keeps the account signed in on that browser profile. Explicit sign-out, cleared browser storage, private browsing, account disablement or token revocation can end a session. Passwords are handled by Firebase, not saved by this app.
 - Ordinary requests no longer force a Firebase user reload. Shop actions show saving feedback immediately and render the updated order returned by the server. Failed updates retain entered payment fields for retry. Status/cash transactions read and write only that order and its new nested audit records; multi-record payment approvals and slot allocation remain atomic across their records. Existing audit records are retained. Student queries use the `uid` database index to load that student's rows rather than the full collection, with a compatibility fallback until indexes deploy.
 - Urgency is optional, defaults off and adds ₹8 **once per order**. The server calculates the fee and includes it in the payment total. The shop sees highlighted urgent orders first. Priority does not promise a completion time or bypass a paused shop.

@@ -25,6 +25,39 @@ async function dashboard(preview = true, service = {}) {
     review() { $('#review-confirm').checked = true; $('#review-confirm').dispatchEvent(new w.Event('change')); }
   };
 }
+
+test('payment-first checkout creates nothing before Done and safely retries the same order', async () => {
+  let calls = [], fail = true, saved = [];
+  const ui = await dashboard(false, {
+    configuration: async () => ({ ordersEnabled: true, paymentsEnabled: true, paymentMode: 'self_declared' }),
+    upload: async () => [], list: async () => ({ orders: saved }),
+    preparePayment: async () => ({ amountPaise: 2500, qr:'data:image/png;base64,TEST', uri:'upi://pay?pa=test%40bank', payee:{name:'Test',upiId:'test@bank'} }),
+    create: async body => {
+      calls.push(body);
+      if (fail) throw Error('Connection interrupted');
+      const order = {...body, createdAt:new Date().toISOString(), paymentStatus:'declared_paid', status:'accepted', quoteAmountPaise:2500, estimate:{amount:25}, collectionSlot:{slot:1,number:9,date:'2026-10-06',startHour:9,endHour:10}};
+      saved = [order]; return {order};
+    }
+  });
+  try {
+    await ui.add(['notes.pdf']); ui.review(); ui.$('#place-order').click(); await tick();
+    assert.equal(calls.length,0); assert.equal(ui.$('#payment-dialog').open,true);
+    assert.equal(ui.$('#submit-manual').disabled,true); assert.equal(ui.$('#manual-reference').required,false);
+    assert.equal(ui.$('#pay-at-collection').hidden,true); assert.equal(ui.$('.payment-options').hidden,true);
+    ui.$('#close-payment').click(); assert.equal(calls.length,0); assert.equal(ui.$('#total-files').textContent,'1');
+    ui.$('#place-order').click(); await tick();
+    ui.$('#manual-declaration').checked=true; ui.$('#manual-declaration').dispatchEvent(new ui.w.Event('change'));
+    ui.$('#submit-manual').click(); await tick();
+    assert.equal(calls.length,1); assert.equal(calls[0].paymentDeclared,true); assert.equal(calls[0].paymentPreference,'online');
+    assert.equal(ui.$('#payment-dialog').open,true); assert.equal(ui.$('#total-files').textContent,'1');
+    assert.match(ui.$('#manual-feedback').textContent,/do not transfer again/);
+    fail=false; ui.$('#submit-manual').click(); ui.$('#submit-manual').click(); await tick(); await tick();
+    assert.equal(calls.length,2); assert.equal(calls[1].id,calls[0].id);
+    assert.equal(ui.$('#payment-dialog').open,false); assert.equal(ui.$('#total-files').textContent,'0');
+    assert.match(ui.$('#orders-list').textContent,/Declared paid/); assert.match(ui.$('#orders-list').textContent,/No. 009/);
+    assert.equal(ui.$('#orders-list .secondary-action'),null);
+  } finally {ui.dom.window.close();}
+});
 test('preview dashboard: upload, estimate, range validation and order creation work together', async () => {
   const ui = await dashboard();
   try {

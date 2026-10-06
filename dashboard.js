@@ -8,6 +8,8 @@
   let shopAccepting = null;
   let config = { ordersEnabled: false, paymentsEnabled: false }, working = false, previewURL = null, paymentOrder = null;
   let pendingSubmission = null;
+  let checkoutDraft = null, confirmingPayment = false;
+  const declarationMode = () => config.paymentMode === 'self_declared';
   let pageQueue = Promise.resolve();
   const node = (tag, text, className) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; };
   function tell(selector, text) { const el = $(selector); el.textContent = text; el.hidden = !text; }
@@ -177,6 +179,22 @@
       } else {
         if (!pendingSubmission.uploaded) pendingSubmission.uploaded = await window.OrderService.upload(files, id, (current, count, percent) => { $('#upload-progress').textContent = `Uploading file ${current} of ${count}: ${percent}%`; });
         input.files = pendingSubmission.uploaded;
+        if (declarationMode()) {
+          input.paymentPreference = 'online';
+          pendingSubmission.input = input;
+          const info = await window.OrderService.preparePayment(input);
+          if (info.order) { finishDeclaredOrder(info.order); return; }
+          checkoutDraft = input;
+          paymentOrder = null;
+          $('#manual-payment-form').reset();
+          configureDeclarationForm();
+          showPaymentInfo(info);
+          $('#payment-message').textContent = 'Pay the total below, then tick the confirmation and select Done to place your order. Closing this window does not place an order. If you already transferred money, do not pay again.';
+          $('#pay-at-collection').hidden = true;
+          tell('#manual-feedback', '');
+          $('#payment-dialog').showModal();
+          return;
+        }
         placedOrder = (await window.OrderService.create(input)).order;
         tell('#orders-message', 'Your fixed-price order is placed. Track printing and collection here.');
       }
@@ -184,6 +202,38 @@
       if (placedOrder) openPayment(placedOrder);
     } catch (error) { tell('#global-message', error.message || 'Order submission failed. Retry to check or complete the same order.'); }
     finally { lock(false); }
+  });
+  function finishDeclaredOrder(order) {
+    orders = [order, ...orders.filter(item => item.id !== order.id)];
+    window.OrderAlerts?.observe(user.uid, orders, true);
+    files = []; selected = null; pendingSubmission = null; checkoutDraft = null;
+    $('#urgent-order').checked = false; $('#review-confirm').checked = false;
+    $('#notes').value = ''; $('#upload-progress').textContent = '';
+    chooseFile(null); updateSummary();
+    tell('#orders-message', 'Order placed. Payment recorded from your confirmation; no recipient approval is needed.');
+    setView('orders'); renderOrders();
+  }
+  function configureDeclarationForm() {
+    const enabled = declarationMode();
+    $('#manual-reference').required = !enabled;
+    $('#manual-reference').closest('.input-wrap').hidden = enabled;
+    $('label[for=manual-reference]').hidden = enabled;
+    if (enabled) {
+      $('#manual-declaration').nextElementSibling.textContent = 'I completed this UPI payment. I understand the app records my confirmation and does not verify the bank transfer.';
+      $('#manual-payment-fields .notice').textContent = 'Student-confirmed payment. No recipient approval is required. Check the amount and receiver in your UPI app before paying.';
+      $('#submit-manual').textContent = checkoutDraft ? 'Done — place order' : 'Done — confirm payment';
+      $('#submit-manual').disabled = !$('#manual-declaration').checked;
+    }
+  }
+  function showPaymentInfo(info) {
+    $('#manual-recipient').textContent = `Recipient: ${info.payee.name} | UPI ID: ${info.payee.upiId}`;
+    $('#manual-amount').textContent = `Amount: ${money(info.amountPaise / 100)}`;
+    $('#manual-qr').src = info.qr; $('#save-qr').href = info.qr;
+    $('#manual-upi-link').href = info.uri; $('#copy-upi').dataset.upi = info.payee.upiId;
+    $('#manual-payment-fields').hidden = false; $('#start-payment').hidden = true;
+  }
+  $('#manual-declaration').addEventListener('change', () => {
+    if (declarationMode()) $('#submit-manual').disabled = confirmingPayment || !$('#manual-declaration').checked;
   });
   function slotCard(slot) {
     const badge = node('div', undefined, 'collection-slot');
@@ -206,10 +256,10 @@
 
       if (order.status === 'ready') card.append(node('p', 'Your prints are ready. Show this order reference at the counter.', 'notice'));
       const bottom = node('div', undefined, 'order-bottom'); const amount = node('div'); const quoted = Number.isInteger(order.quoteAmountPaise);
-      const paymentLabel = order.paymentStatus === 'paid' ? (config.paymentMode === 'test' ? 'Test payment only' : order.paymentMethod === 'manual_upi' ? 'Payment successful - confirmed by recipient' : 'Paid') : order.paymentStatus === 'pending_verification' ? 'Awaiting recipient confirmation - do not pay again' : order.paymentStatus === 'rejected' ? 'Payment not confirmed - contact recipient before retrying' : 'Unpaid';
+      const paymentLabel = order.paymentStatus === 'declared_paid' ? 'Declared paid — student confirmation' : order.paymentStatus === 'paid' ? (config.paymentMode === 'test' ? 'Test payment only' : order.paymentMethod === 'manual_upi' ? 'Payment successful - confirmed by recipient' : 'Paid') : order.paymentStatus === 'pending_verification' ? (declarationMode() ? 'Confirm your previous payment — do not pay again' : 'Awaiting recipient confirmation - do not pay again') : order.paymentStatus === 'rejected' ? 'Payment not confirmed - contact recipient before retrying' : 'Unpaid';
       amount.append(node('strong', money(quoted ? order.quoteAmountPaise / 100 : order.estimate.amount) + (!quoted && order.estimate.needsQuote ? ' + quote' : '')), node('small', `${quoted ? 'Order total' : 'Legacy order - contact the shop'} - ${paymentLabel}`)); bottom.append(amount);
       if (order.paymentReviewNote && order.paymentStatus === 'rejected') card.append(node('p', order.paymentReviewNote, 'inline-message'));
-      if (!['paid','pending_verification'].includes(order.paymentStatus) && !['cancelled','collected'].includes(order.status)) { const pay = node('button', order.paymentStatus === 'rejected' ? 'Review payment details' : 'Pay online ↗', 'secondary-action'); pay.addEventListener('click', () => openPayment(order)); bottom.append(pay); }
+      if (!['paid','declared_paid', ...(declarationMode() ? [] : ['pending_verification'])].includes(order.paymentStatus) && !['cancelled','collected'].includes(order.status)) { const pay = node('button', order.paymentStatus === 'pending_verification' ? 'Confirm payment' : order.paymentStatus === 'rejected' ? 'Review payment details' : 'Pay online ↗', 'secondary-action'); pay.addEventListener('click', () => openPayment(order)); bottom.append(pay); }
       card.append(bottom); list.append(card);
     });
   }
@@ -226,26 +276,30 @@
   $('#refresh-orders').addEventListener('click', refreshOrders);
   document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => { filter = button.dataset.filter; document.querySelectorAll('[data-filter]').forEach(item => item.setAttribute('aria-pressed', String(item === button))); renderOrders(); }));
   function openPayment(order) {
+    checkoutDraft = null;
     $('#start-payment').disabled = false;
     $('#pay-at-collection').hidden = false;
     $('#manual-payment-fields').hidden = true;
     $('#manual-payment-form').reset();
+    configureDeclarationForm();
+    $('#pay-at-collection').hidden = declarationMode();
     tell('#manual-feedback', '');
     paymentOrder = order; const hasQuote = Number.isInteger(order.quoteAmountPaise);
     $('#start-payment').hidden = demo || !config.paymentsEnabled || !hasQuote;
     $('#payment-message').textContent = demo ? 'Preview only. No money can be sent from this demo.' : !hasQuote ? 'This older order needs assistance from the shop. New orders have an immediate fixed total.' : !config.paymentsEnabled ? 'Online payments are not activated. The supplied UPI account has not been verified for this app. You can pay at the shop when collecting.' : config.paymentMode === 'test' ? `TEST CHECKOUT: simulate ${money(order.quoteAmountPaise / 100)}. No money is transferred to Hanish or the shop. Use only the provider test payment options.` : `Pay ${money(order.quoteAmountPaise / 100)} to ${config.merchantName} using the payment provider. Select an available UPI app or scan the provider QR. Check the payee in your UPI app before approving.`;
     $('#payment-dialog').showModal();
-    if (!demo && config.paymentMode === 'manual' && config.paymentsEnabled && hasQuote) {
-      $('#payment-message').textContent = 'Pay the confirmed total by UPI, then submit your transaction reference. The recipient checks receipt before payment is marked successful.';
+    if (!demo && ['manual','self_declared'].includes(config.paymentMode) && config.paymentsEnabled && hasQuote) {
+      $('#payment-message').textContent = declarationMode() ? 'Pay by UPI, then tick the checkbox and select Done. If you already transferred money for this order, confirm it here without paying again.' : 'Pay the confirmed total by UPI, then submit your transaction reference. The recipient checks receipt before payment is marked successful.';
       $('#start-payment').textContent = 'Retry loading QR';
       $('#start-payment').click();
     } else $('#start-payment').textContent = 'Continue to secure checkout';
   }
   $('#pay-at-collection').addEventListener('click', () => { $('#payment-dialog').close(); tell('#orders-message', 'Order placed. Pay at the counter, or open Pay online later. If you already sent money, submit its reference before paying again.'); });
-  $('#close-payment').addEventListener('click', () => $('#payment-dialog').close());
+  $('#close-payment').addEventListener('click', () => { if (!confirmingPayment) $('#payment-dialog').close(); });
+  $('#payment-dialog').addEventListener('cancel', event => { if (confirmingPayment) event.preventDefault(); });
   $('#start-payment').addEventListener('click', async () => {
     $('#start-payment').disabled = true;
-    if (config.paymentMode === 'manual') {
+    if (['manual','self_declared'].includes(config.paymentMode)) {
       const orderId = paymentOrder.id;
       try {
         const info = await window.OrderService.manualInstructions(orderId);
@@ -272,8 +326,28 @@
   });
   $('#manual-payment-form').addEventListener('submit', async event => {
     event.preventDefault();
+    if (confirmingPayment) return;
     if (!$('#manual-payment-form').reportValidity() || demo) return;
     $('#submit-manual').disabled = true;
+    if (declarationMode()) {
+      if (!$('#manual-declaration').checked) return;
+      confirmingPayment = true; $('#close-payment').disabled = true; lock(true);
+      tell('#manual-feedback', 'Saving your confirmation…');
+      try {
+        if (checkoutDraft) {
+          const result = await window.OrderService.create({ ...checkoutDraft, paymentDeclared: true });
+          finishDeclaredOrder(result.order);
+        } else {
+          const result = await window.OrderService.declarePayment(paymentOrder.id);
+          orders = orders.map(order => order.id === result.order.id ? result.order : order);
+          window.OrderAlerts?.observe(user.uid, orders, true); renderOrders();
+          tell('#orders-message', 'Payment recorded from your confirmation. No recipient approval is needed.');
+        }
+        $('#payment-dialog').close();
+      } catch (error) { tell('#manual-feedback', error.message + ' If you already paid, do not transfer again. Retry Done to save the same order.'); }
+      finally { confirmingPayment = false; $('#close-payment').disabled = false; $('#submit-manual').disabled = !$('#manual-declaration').checked; lock(false); }
+      return;
+    }
     try {
       await window.OrderService.submitManualPayment(paymentOrder.id, $('#manual-reference').value.trim());
       $('#payment-dialog').close();
@@ -298,6 +372,7 @@
         if (!user?.emailVerified || !window.KitswAuth.isCollegeEmail(user.email)) { location.replace('index.html'); return; }
         $('#student-email').textContent = user.email;
         config = await window.OrderService.configuration();
+        configurePaymentMode();
         window.OrderAlerts?.setup(config.notificationSound);
         await refreshShop();
         if (config.ordersEnabled && window.OrderService.me) {
@@ -325,7 +400,16 @@
     banner.textContent = shopAccepting === false ? 'The shop is busy and is not accepting new orders. You can still track or pay for existing orders.' : 'Unable to check shop availability. New orders are paused until we reconnect.';
     updateSummary();
   }
+  function configurePaymentMode() {
+    if (!declarationMode()) return;
+    $('.payment-options').hidden = true;
+    $('[name=payment][value=online]').checked = true;
+    $('#place-order').textContent = 'Continue to payment →';
+    $('#payment-guide').textContent = 'Pay by UPI before placing your order. Tick the payment confirmation and select Done. No recipient approval is needed; the app records your declaration until a merchant gateway is connected.';
+    $('#checkout-note').hidden = false;
+  }
   function showServiceState() {
+    configurePaymentMode();
     $('#mode-banner').textContent = config.backendUnavailable || config.serviceUnavailable ? 'The shop connection is temporarily unavailable. Keep this page open: your selected files and settings stay here. We’ll reconnect automatically. Check saved orders before repeating a payment.' : config.paymentMode === 'test' ? 'PAYMENT TEST ENVIRONMENT — no real money is transferred.' : config.ordersEnabled ? 'Campus Xerox centre · Normal days 9:00 AM–5:30 PM · Exam days 8:30 AM–5:30 PM IST.' : 'Orders are not activated yet. You can prepare your print settings.';
   }
   let reconnecting = false;

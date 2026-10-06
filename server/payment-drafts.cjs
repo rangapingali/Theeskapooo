@@ -19,11 +19,14 @@ module.exports = function registerDrafts(app,{db,paymentConfig,publicOrder,env})
     const amountPaise=Math.round(input.estimate.amount*100);
     if(input.estimate.needsQuote||!Number.isSafeInteger(amountPaise)||amountPaise<100||amountPaise>5000000)throw fail(400,'Check the print settings and total before payment.');
     const ref=db.collection('paymentDrafts').doc(input.id);
+    const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(new Date()).replaceAll('/','-');
     let info,existingOrder;
     await db.runTransaction(async tx=>{
       const saved=await tx.get(db.collection(paymentConfig.ordersCollection).doc(input.id));
       if(saved.exists){if(saved.data().uid!==req.student.uid)throw fail(409,'Start a new checkout.');existingOrder=publicOrder(saved);return;}
       require('./shop-settings.cjs').requireOpen((await tx.get(db.collection('settings').doc('shop'))).data());
+      const quota=(await tx.get(db.collection(paymentConfig.quotaCollection).doc(req.student.uid+'-'+day))).data();
+      if((quota?.count||0)>=30)throw fail(429,'Daily order limit reached. Contact the shop before paying.');
       checkSession(input,(await tx.get(db.collection('uploadSessions').doc(input.id))).data(),req.student.uid);
       const old=(await tx.get(ref)).data(), hash=fingerprint(input);
       if(old && (old.uid!==req.student.uid||old.requestHash!==hash))throw fail(409,'Checkout details changed. Start a new checkout.');

@@ -19,6 +19,43 @@ function database() {
     }); queue=run.catch(()=>{});return run;
   } };
 }
+
+test('declaration checkout: private draft, explicit confirmation, immutable total, idempotent order, no recipient approval', async () => {
+  const db=database(), app=express(); app.use(express.json());
+  app.use((req,res,next)=>{const uid=req.get('x-user')||'student';req.student={uid,email:uid+'@kitsw.ac.in',email_verified:true};next();});
+  const deps={db,bucket:{file:()=>({getMetadata:async()=>[{size:100,contentType:'application/octet-stream',generation:'1'}]})},paymentConfig:{mode:'self_declared',enabled:true,ordersCollection:'orders',quotaCollection:'quotas'},publicOrder:s=>({id:s.id,...s.data()}),FieldValue:{serverTimestamp:()=>Date.now()},env:{PRINT_OPERATOR_EMAILS:'shop@kitsw.ac.in',MERCHANT_UPI_REFERENCE:'test@bank',MERCHANT_UPI_ACCOUNT_NAME:'Test'}};
+  for(const route of ['payment-drafts','order-routes','manual-routes']) require('../server/'+route+'.cjs')(app,deps);
+  app.use((e,req,res,next)=>res.status(e.httpStatus||500).json({error:e.message}));
+  const server=app.listen(0,'127.0.0.1'); await new Promise(r=>server.once('listening',r));
+  const base='http://127.0.0.1:'+server.address().port+'/api';
+  const post=async(path,body,user='student')=>{const r=await fetch(base+path,{method:'POST',headers:{'Content-Type':'application/json','X-User':user},body:JSON.stringify(body)});return {status:r.status,data:await r.json()};};
+  async function input() {
+    const id=randomUUID(), path='student-uploads/student/'+id+'/'+randomUUID()+'.pdf';
+    await db.runTransaction(async tx=>tx.create(db.collection('uploadSessions').doc(id),{uid:'student',state:'open',createdMs:Date.now(),files:{one:{path,size:100,pages:3}}}));
+    return {id,shop:'campus',notes:'',pickupTime:null,paymentPreference:'online',priority:true,files:[{path,size:100,name:'notes.pdf',settings:{...require('../print-core.js').defaults,pages:3}}]};
+  }
+  try {
+    const a=await input();
+    assert.equal((await post('/orders',a)).status,400);
+    assert.equal((await post('/orders',{...a,paymentDeclared:true})).status,409);
+    const draft=await post('/payment-drafts',a); assert.equal(draft.status,200); assert.equal(draft.data.amountPaise,2300); assert.equal(draft.data.verifiedByBank,false);
+    assert.equal((await db.collection('orders').get()).docs.length,0);
+    assert.equal((await post('/orders',{...a,paymentDeclared:'true'})).status,400);
+    assert.equal((await post('/orders',{...a,priority:false,paymentDeclared:true})).status,409);
+    assert.notEqual((await post('/orders',{...a,paymentDeclared:true},'other')).status,201);
+    const committed=await Promise.all([post('/orders',{...a,paymentDeclared:true}),post('/orders',{...a,paymentDeclared:true})]);
+    committed.forEach(r=>{assert.ok([200,201].includes(r.status),JSON.stringify(r));assert.equal(r.data.order.paymentStatus,'declared_paid');assert.equal(r.data.order.quoteAmountPaise,2300);});
+    assert.deepEqual(committed[0].data.order.collectionSlot,committed[1].data.order.collectionSlot);
+    assert.equal((await db.collection('orders').get()).docs.length,1);
+    assert.equal((await post('/operator/orders/'+a.id+'/payment-review',{},'shop')).status,409);
+    for(const status of ['printing','ready','collected']) assert.equal((await post('/operator/orders/'+a.id+'/status',{status},'shop')).status,200);
+    const b=await input(); await post('/payment-drafts',b);
+    const second=await post('/orders',{...b,paymentDeclared:true}); assert.equal(second.status,201);
+    assert.notDeepEqual(second.data.order.collectionSlot,committed[0].data.order.collectionSlot);
+    assert.equal((await post('/orders/'+b.id+'/declare-payment',{paymentDeclared:true},'other')).status,404);
+    assert.equal((await post('/orders/'+b.id+'/declare-payment',{paymentDeclared:true})).status,200);
+  } finally {await new Promise(r=>server.close(r));}
+});
 test('student and shop journey: verified PDF price, unique slot, busy gating, manual UPI, cash, ready and handover', async () => {
   const db=database(), objects=new Map();
   const bucket={ upload:async(path,bytes)=>objects.set(path,Buffer.from(bytes)), remove:async paths=>paths.forEach(p=>objects.delete(p)), file:path=>({getMetadata:async()=>[{size:objects.get(path).length,contentType:'application/octet-stream',generation:'1'}],createReadStream:()=>Readable.from([objects.get(path)])}) };

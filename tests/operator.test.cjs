@@ -5,6 +5,25 @@ const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const root = path.resolve(__dirname, '..');
 const tick = () => new Promise(resolve => setImmediate(resolve));
+
+test('declaration mode removes recipient approval and allows declared-paid handover',async()=>{
+  const dom=new JSDOM(fs.readFileSync(path.join(root,'operator.html'),'utf8'),{url:'http://localhost/operator.html',runScripts:'outside-only'});
+  const order={id:'one',uid:'student',email:'student@kitsw.ac.in',status:'ready',paymentStatus:'declared_paid',files:[],quoteAmountPaise:500};
+  let action;
+  dom.window.KitswAuth={current:async()=>({uid:'operator',email:'operator@kitsw.ac.in',emailVerified:true})};
+  dom.window.OrderService={me:async()=>({isOperator:true}),configuration:async()=>({paymentMode:'self_declared'}),shop:async()=>({acceptingOrders:true}),operatorOrders:async()=>({orders:[order]}),operatorAction:async(id,kind,body)=>{action=body.status;return{order:{...order,status:body.status}};}};
+  try {
+    dom.window.eval(fs.readFileSync(path.join(root,'operator.js'),'utf8'));await tick();
+    const d=dom.window.document;
+    assert.equal(d.querySelector('[data-filter=pending]').hidden,true);
+    assert.equal(d.querySelector('#count-payments').closest('.panel').hidden,true);
+    assert.match(d.querySelector('#operator-orders').textContent,/Declared paid/);
+    assert.equal(d.querySelector('#operator-orders form'),null);
+    const handover=[...d.querySelectorAll('#operator-orders button')].find(b=>b.textContent==='Confirm handed over');
+    assert.equal(handover.disabled,false);handover.click();await tick();
+    assert.equal(action,'collected');assert.match(d.querySelector('#operator-orders').textContent,/No orders/);
+  } finally {dom.window.close();}
+});
 test('same-account operator UI denies unassigned access without loading other student orders', async () => {
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'http://localhost/operator.html', runScripts: 'outside-only' });
   let calls = 0;

@@ -15,5 +15,8 @@ test('alerts sound once for ready and confirmed-paid transitions, never for pend
   a.observe('student',[{id:'1',status:'ready',paymentStatus:'pending_verification'}]);assert.equal(sounds,1);
   a.observe('student',[{id:'1',status:'ready',paymentStatus:'paid'}]);assert.equal(sounds,2);
   a.observe('another',[{id:'1',status:'ready',paymentStatus:'paid'}]);assert.equal(sounds,2);
+  a.observe('another',[{id:'2',status:'accepted',paymentStatus:'declared_paid'}],true);assert.equal(sounds,3);
+  assert.match(dom.window.document.querySelector('#order-alert').textContent,/declaration recorded/);
+  a.observe('another',[{id:'2',status:'accepted',paymentStatus:'declared_paid'}],true);assert.equal(sounds,3);
  }finally{dom.window.close();}
 });

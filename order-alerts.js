@@ -28,7 +28,7 @@ window.OrderAlerts = (() => {
       label(); if (enabled) await sound();
     }); label();
   }
-  function observe(uid, orders) {
+  function observe(uid, orders, announceDeclaration = false) {
     if (owner !== uid) {
       owner = uid; previous = new Map();
       try { previous = new Map(JSON.parse(sessionStorage.getItem('order-alerts:' + uid) || '[]')); } catch {}
@@ -38,6 +38,7 @@ window.OrderAlerts = (() => {
       const old = previous.get(order.id);
       if (old && old.status !== 'ready' && order.status === 'ready') messages.push('Order #' + order.id.slice(0,8).toUpperCase() + ' is ready to collect.');
       if (old && old.paymentStatus !== 'paid' && order.paymentStatus === 'paid') messages.push('Payment confirmed for order #' + order.id.slice(0,8).toUpperCase() + '.');
+      if (order.paymentStatus === 'declared_paid' && old?.paymentStatus !== 'declared_paid' && (old || announceDeclaration)) messages.push('Payment declaration recorded for order #' + order.id.slice(0,8).toUpperCase() + '.');
       previous.set(order.id, { status: order.status, paymentStatus: order.paymentStatus });
     }
     // Bound remembered statuses; do not store filenames, receipts or documents.

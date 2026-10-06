@@ -2,6 +2,12 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { paymentConfiguration } = require('../server/payment-config.cjs');
 const base = { KITSW_ENABLE_ORDERS: 'true', RAZORPAY_KEY_ID: 'rzp_test_example', RAZORPAY_KEY_SECRET: 'test-secret', RAZORPAY_WEBHOOK_SECRET: 'test-webhook' };
+test('student declaration mode requires a configured payee but no approver or gateway', () => {
+  const env={KITSW_ENABLE_ORDERS:'true',PAYMENT_MODE:'self_declared',MERCHANT_UPI_REFERENCE:'test@bank',MERCHANT_UPI_ACCOUNT_NAME:'Test'};
+  assert.equal(paymentConfiguration(env).enabled,true);
+  assert.equal(paymentConfiguration({...env,MERCHANT_UPI_REFERENCE:''}).enabled,false);
+  assert.equal(paymentConfiguration({...env,KITSW_ENABLE_ORDERS:'false'}).enabled,false);
+});
 test('test mode does not require live merchant verification and isolates order records', () => {
   const config = paymentConfiguration({ ...base, PAYMENT_MODE: 'test' });
   assert.equal(config.enabled, true);

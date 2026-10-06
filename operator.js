@@ -4,6 +4,7 @@
   const preview = new URLSearchParams(location.search).get('preview') === '1';
   const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value / 100);
   const node = (tag, text, css) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (css) el.className = css; return el; };
+  let declarationMode = false;
   let orders = [], actor, allowed = false, busy = false, filter = 'all';
   function message(text) { $('#operator-feedback').textContent = text; $('#operator-feedback').hidden = !text; }
   function inputField(parent, label, type = 'text') {
@@ -40,7 +41,7 @@
   }
   function paymentReview(card, order) {
     const claim = order.manualPayment;
-    if (order.paymentStatus !== 'pending_verification' || !claim) return;
+    if (declarationMode || order.paymentStatus !== 'pending_verification' || !claim) return;
     const area = node('section', undefined, 'operator-action');
     area.append(node('h2', 'Check this payment'), node('p', `Expected receipt: ${money(claim.amountPaise)} | Reference: ${claim.reference}`, 'notice'), node('p', `Recipient: ${claim.payee.name} (${claim.payee.upiId})`, 'microcopy'));
     const form = node('form', undefined, 'setting-grid');
@@ -69,7 +70,7 @@
     selected.forEach(order => {
       const card = node('article', undefined, 'panel order-card' + (order.priority ? ' priority-order' : ''));
       if (order.priority) card.append(node('strong', 'URGENT · Priority order · ₹8 extra included', 'priority-badge'));
-      const labels = { accepted: 'New order', submitted: 'Older order', printing: 'Printing', ready: 'Ready to collect', collected: 'Collected', cancelled: 'Cancelled', unpaid: 'Unpaid', paid: 'Paid', pending_verification: 'Payment to check', rejected: 'Payment not confirmed' };
+      const labels = { accepted: 'New order', submitted: 'Older order', printing: 'Printing', ready: 'Ready to collect', collected: 'Collected', cancelled: 'Cancelled', unpaid: 'Unpaid', paid: 'Paid', declared_paid: 'Declared paid (student)', pending_verification: 'Payment to check', rejected: 'Payment not confirmed' };
       const top = node('div', undefined, 'order-card-top'); const heading = node('div');
       const title = node('h2', '#' + order.id.slice(0, 8).toUpperCase()); title.title = order.id;
       heading.append(title, node('p', order.email)); top.append(heading, node('span', `${labels[order.status] || order.status} / ${labels[order.paymentStatus] || order.paymentStatus}`, 'status-pill')); card.append(top);
@@ -95,7 +96,7 @@
       if (order.uid === actor.uid) { card.append(node('p', 'This is your student order. Another authorized operator must handle its payment and status.', 'notice')); list.append(card); return; }
       if (['collected', 'cancelled'].includes(order.status)) { list.append(card); return; }
       paymentReview(card, order);
-      if (order.reviewStatus === 'approved' && order.paymentStatus === 'unpaid' && !order.providerOrderId && !['cancelled','collected'].includes(order.status)) {
+      if (!declarationMode && order.reviewStatus === 'approved' && order.paymentStatus === 'unpaid' && !order.providerOrderId && !['cancelled','collected'].includes(order.status)) {
         const cash = node('form', undefined, 'operator-action setting-grid'); const received = inputField(cash, 'Cash received at counter (Rs)', 'number'); received.step = '0.01'; received.required = true; received.min = '1';
         const noUpi = order.lockedAmountPaise ? checkField(cash, 'I checked the recipient account: no UPI transfer was received for this order.') : null;
         const checked = checkField(cash, 'I have received the full cash amount.'); submitButton(cash, 'Confirm cash received');
@@ -103,7 +104,7 @@
       }
       const next = { accepted: 'printing', printing: 'ready', ready: 'collected' }[order.status];
       const pagesCheck = next === 'printing' && order.files.some(file => file.pageCountSource === 'manual') ? checkField(card, 'I checked the student-entered page counts in the documents. If they differ, contact the student before printing.') : null;
-      if (next) { const button = node('button', { printing: 'Start printing', ready: 'Mark ready to collect', collected: 'Confirm handed over' }[next], 'secondary-action'); button.disabled = next === 'collected' && order.paymentStatus !== 'paid'; button.addEventListener('click', () => { if (pagesCheck && !pagesCheck.checked) { message('Check the page counts in the downloaded documents first.'); pagesCheck.focus(); return; } act(order, 'status', { status: next, pagesChecked: pagesCheck?.checked === true }); }); card.append(button); }
+      if (next) { const button = node('button', { printing: 'Start printing', ready: 'Mark ready to collect', collected: 'Confirm handed over' }[next], 'secondary-action'); button.disabled = next === 'collected' && !['paid','declared_paid'].includes(order.paymentStatus); button.addEventListener('click', () => { if (pagesCheck && !pagesCheck.checked) { message('Check the page counts in the downloaded documents first.'); pagesCheck.focus(); return; } act(order, 'status', { status: next, pagesChecked: pagesCheck?.checked === true }); }); card.append(button); }
       if (['submitted', 'accepted'].includes(order.status) && order.paymentStatus === 'unpaid' && !order.lockedAmountPaise && !order.providerOrderId) {
         const cancel = node('button', 'Cancel unprinted order', 'quiet');
         cancel.addEventListener('click', () => { if (window.confirm('Cancel this unprinted order? The student will see it as cancelled.')) act(order, 'status', { status: 'cancelled' }); }); card.append(cancel);
@@ -116,7 +117,7 @@
     if (!preview) {
       const results = await Promise.allSettled([refreshShop(), api.operatorOrders()]);
       if (results[1].status === 'fulfilled' && !busy) orders = results[1].value.orders;
-      else message('Could not load orders: ' + results[1].reason.message);
+      else if (results[1].status === 'rejected') message('Could not load orders: ' + results[1].reason.message);
     }
     render();
   }
@@ -136,6 +137,10 @@
         if (!actor?.emailVerified) { $('#operator-banner').textContent = 'Sign in with your verified student account first. Operator access is an extra permission on that same account.'; render(); return; }
         $('#operator-email').textContent = actor.email;
         allowed = (await api.me()).isOperator;
+        if (api.configuration) declarationMode = (await api.configuration()).paymentMode === 'self_declared';
+        $('#count-payments').closest('.panel').hidden = declarationMode;
+        $('[data-filter=pending]').hidden = declarationMode;
+        if (declarationMode) { $('.sidebar-note strong').textContent = 'Print. Prepare. Hand over.'; $('.sidebar-note p').textContent = 'Students confirm payment before new orders arrive. Declared paid means student-confirmed, not bank-verified. No payment approval step is needed.'; }
         $('#operator-banner').textContent = allowed ? 'Operator workspace - your student account remains available using the Student dashboard link.' : 'Your student account is active, but operator access has not been assigned.';
       } catch (error) { $('#operator-banner').textContent = error.message || 'Operator service unavailable. Server setup is required.'; }
     }
