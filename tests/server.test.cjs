@@ -23,7 +23,8 @@ test('server serves public dashboard but denies secrets and unconfigured orders/
   const base = 'http://127.0.0.1:' + server.address().port;
   try {
     assert.equal((await fetch(base + '/dashboard.html')).status, 200);
-    for (const asset of ['/dashboard.js','/dashboard.css','/print-core.js','/order-service.js','/trending.html','/trending.js','/tech-titans.svg','/college-source.html']) assert.equal((await fetch(base + asset)).status, 200);
+    for (const asset of ['/dashboard.js','/dashboard.css','/print-core.js','/order-service.js','/trending.html','/trending.js','/tech-titans.svg','/college-source.html','/manifest.webmanifest','/service-worker.js','/pwa.js','/pwa-icon-192.png','/pwa-icon-512.png']) assert.equal((await fetch(base + asset)).status, 200);
+    assert.match((await fetch(base + '/service-worker.js')).headers.get('cache-control'), /no-store/);
     for (const privatePath of ['/.env','/.env.example','/server/index.cjs','/SETUP.md','/package.json']) assert.equal((await fetch(base + privatePath)).status, 404);
     const config = await (await fetch(base + '/api/config')).json();
     assert.equal(config.ordersEnabled, false); assert.equal(config.paymentsEnabled, false);

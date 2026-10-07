@@ -28,6 +28,7 @@ function failure(status, message) { return Object.assign(new Error(message), { h
 app.use((req, res, next) => {
   res.set('X-Content-Type-Options', 'nosniff'); res.set('Referrer-Policy', 'strict-origin-when-cross-origin'); res.set('X-Frame-Options', 'SAMEORIGIN');
   if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
+  if (req.path === '/service-worker.js') res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   next();
 });
 async function provider(route, body) {
@@ -142,7 +143,7 @@ app.post('/api/orders/:id/verify-payment', async (req, res) => {
   await markPaid(ref, payment); res.json({ status: 'paid' });
 });
 // Only these public assets are served. Never expose .env, backend code or credentials.
-const publicFiles = ['index.html','college-source.html','dashboard.html','operator.html','operator.js','trending.html','trending.js','styles.css','dashboard.css','app.js','auth-service.js','firebase-config.js','print-core.js','order-service.js','dashboard.js','tech-titans.svg','kitsw-logo.jpg','theeskapooo-logo.svg','theeskapooo-icon.svg','document-pages.js','document-pages-core.js','document-pages-worker.js','order-alerts.js','notification-voice.mp3'];
+const publicFiles = ['index.html','college-source.html','dashboard.html','operator.html','operator.js','trending.html','trending.js','manifest.webmanifest','service-worker.js','pwa.js','pwa-icon-192.png','pwa-icon-512.png','styles.css','dashboard.css','app.js','auth-service.js','firebase-config.js','print-core.js','order-service.js','dashboard.js','tech-titans.svg','kitsw-logo.jpg','theeskapooo-logo.svg','theeskapooo-icon.svg','document-pages.js','document-pages-core.js','document-pages-worker.js','order-alerts.js','notification-voice.mp3'];
 app.get('/vendor/pdf-lib.min.js', (req, res) => res.sendFile(path.join(root, 'node_modules/pdf-lib/dist/pdf-lib.min.js')));
 app.get('/', (req, res) => res.sendFile(path.join(root, 'index.html')));
 for (const file of publicFiles) app.get('/' + file, (req, res) => res.sendFile(path.join(root, file)));

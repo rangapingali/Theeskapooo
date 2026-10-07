@@ -27,6 +27,8 @@ For the complete website and API on one free pilot host, follow [DEPLOYMENT.md](
 
 This deployment serves the UI only. The current Express API, upload inspection and cleanup worker need a running Node host. Requests use same-origin `/api/*`; connect that path to the deployed backend before using live orders. Until then, the UI correctly reports orders unavailable. Do not set the publish directory to the repository root or use `npm start` as a Netlify build command.
 
+The site is installable as a PWA on supported phones when served over HTTPS (or localhost). Android users can choose **Install app** or **Add to Home screen** in their browser; iPhone users can choose **Share → Add to Home Screen** in Safari. The service worker always uses the network and does not cache pages, account data, documents, orders or payments; the app is not available offline.
+
 ## Checks and sensitive data
 
 - `npm test` runs automated tests with local fixtures and mocked services.
