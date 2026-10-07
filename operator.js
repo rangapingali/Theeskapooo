@@ -202,15 +202,21 @@
       if (order.uid === actor.uid) { card.append(node('p', 'This is your student order. Another authorized operator must handle its payment and status.', 'notice')); list.append(card); return; }
       if (['collected', 'cancelled'].includes(order.status)) { list.append(card); return; }
       paymentReview(card, order);
-      if (!declarationMode && order.reviewStatus === 'approved' && order.paymentStatus === 'unpaid' && !order.providerOrderId && !['cancelled','collected'].includes(order.status)) {
+      if ((order.paymentPreference === 'offline' || !declarationMode) && order.reviewStatus === 'approved' && order.paymentStatus === 'unpaid' && !order.providerOrderId && !['cancelled','collected'].includes(order.status)) {
         const cash = node('form', undefined, 'operator-action setting-grid'); const received = inputField(cash, 'Cash received at counter (Rs)', 'number'); received.step = '0.01'; received.required = true; received.min = '1';
         const noUpi = order.lockedAmountPaise ? checkField(cash, 'I checked the recipient account: no UPI transfer was received for this order.') : null;
         const checked = checkField(cash, 'I have received the full cash amount.'); submitButton(cash, 'Confirm cash received');
-        cash.addEventListener('submit', event => { event.preventDefault(); act(order, 'cash', { amountPaise: Math.round(Number(received.value) * 100), receiptChecked: checked.checked, noUpiReceived: noUpi ? noUpi.checked : true }); }); card.append(cash);
+        const studentPresent = order.offlineNumber ? checkField(cash, 'The student is present and I matched their offline identification number.') : null;
+        cash.addEventListener('submit', event => {
+          event.preventDefault();
+          if (!checked.checked || (noUpi && !noUpi.checked) || (studentPresent && !studentPresent.checked)) { message('Confirm receipt, any required UPI check, and the student identification before saving cash payment.'); return; }
+          act(order, 'cash', { amountPaise: Math.round(Number(received.value) * 100), receiptChecked: checked.checked, noUpiReceived: noUpi ? noUpi.checked : true, studentPresent: studentPresent ? studentPresent.checked : true });
+        }); card.append(cash);
       }
       const next = { accepted: 'printing', printing: 'ready', ready: 'collected' }[order.status];
-      const pagesCheck = next === 'printing' && order.files.some(file => file.pageCountSource === 'manual') ? checkField(card, 'I checked the student-entered page counts in the documents. If they differ, contact the student before printing.') : null;
-      if (next) { const button = node('button', { printing: 'Start printing', ready: 'Mark ready to collect', collected: 'Confirm handed over' }[next], 'secondary-action'); button.disabled = next === 'collected' && !['paid','declared_paid'].includes(order.paymentStatus); button.addEventListener('click', () => { if (pagesCheck && !pagesCheck.checked) { message('Check the page counts in the downloaded documents first.'); pagesCheck.focus(); return; } act(order, 'status', { status: next, pagesChecked: pagesCheck?.checked === true }); }); card.append(button); }
+      const pagesCheck = next === 'printing' && (order.files || []).some(file => file.pageCountSource === 'manual') ? checkField(card, 'I checked the student-entered page counts in the documents. If they differ, contact the student before printing.') : null;
+      const studentPresent = next === 'printing' && order.paymentPreference === 'offline' ? checkField(card, 'The student is present and I matched their offline identification number before printing.') : null;
+      if (next) { const button = node('button', { printing: 'Start printing', ready: 'Mark ready to collect', collected: 'Confirm handed over' }[next], 'secondary-action'); button.disabled = (next === 'collected' && !['paid','declared_paid'].includes(order.paymentStatus)) || (next === 'printing' && !['paid','declared_paid'].includes(order.paymentStatus)); button.addEventListener('click', () => { if (pagesCheck && !pagesCheck.checked) { message('Check the page counts in the downloaded documents first.'); pagesCheck.focus(); return; } if (studentPresent && !studentPresent.checked) { message('Confirm the student is present and match their offline identification number before printing.'); studentPresent.focus(); return; } act(order, 'status', { status: next, pagesChecked: pagesCheck?.checked === true, studentPresent: studentPresent?.checked === true }); }); card.append(button); }
       if (['submitted', 'accepted'].includes(order.status) && order.paymentStatus === 'unpaid' && !order.lockedAmountPaise && !order.providerOrderId) {
         const cancel = node('button', 'Cancel unprinted order', 'quiet');
         cancel.addEventListener('click', () => { if (window.confirm('Cancel this unprinted order? The student will see it as cancelled.')) act(order, 'status', { status: 'cancelled' }); }); card.append(cancel);

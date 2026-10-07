@@ -49,6 +49,12 @@ test('manual API enforces ownership, operator approval, pending status, idempote
     assert.equal((await post(`operator/orders/${cashId}/cash`, cash, 'operator')).status, 409);
     assert.equal((await post(`operator/orders/${cashId}/cash`, { ...cash, noUpiReceived: true }, 'operator')).status, 200);
     assert.equal(db.data.get('orders/' + cashId).paymentMethod, 'cash');
+    const offlineId = crypto.randomUUID();
+    db.data.set('orders/' + offlineId, { uid: 'student1', status: 'accepted', paymentStatus: 'unpaid', paymentPreference: 'offline', offlineNumber: 17, reviewStatus: 'approved', quoteAmountPaise: 500, files: [] });
+    assert.equal((await post(`operator/orders/${offlineId}/cash`, { amountPaise: 500, receiptChecked: true }, 'operator')).status, 409);
+    assert.equal((await post(`operator/orders/${offlineId}/cash`, { amountPaise: 500, receiptChecked: true, studentPresent: true }, 'operator')).status, 200);
+    assert.equal((await post(`operator/orders/${offlineId}/status`, { status: 'printing' }, 'operator')).status, 409);
+    assert.equal((await post(`operator/orders/${offlineId}/status`, { status: 'printing', studentPresent: true }, 'operator')).status, 200);
     const collectedId = crypto.randomUUID();
     db.data.set('orders/' + collectedId, { uid: 'student1', status: 'ready', paymentStatus: 'declared_paid', quoteAmountPaise: 6000, files: [{ path: 'private/handed-over.pdf' }] });
     db.data.set('uploadSessions/' + collectedId, { state: 'ordered', collection: 'orders', files: { one: { path: 'private/handed-over.pdf' } } });

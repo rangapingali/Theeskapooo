@@ -92,6 +92,52 @@ test('shop actions show immediate saving feedback and reuse the confirmed order 
   }finally{dom.window.close();}
 });
 
+test('offline orders can record cash and status actions carry the required student-present confirmation', async () => {
+  const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'http://localhost/operator.html', runScripts: 'outside-only' });
+  const $ = selector => dom.window.document.querySelector(selector);
+  const actions = [];
+  let order = { id: 'offline-order', uid: 'student', email: 'student@kitsw.ac.in', status: 'accepted', paymentStatus: 'unpaid', paymentPreference: 'offline', offlineNumber: 42, reviewStatus: 'approved', quoteAmountPaise: 500, files: [] };
+  dom.window.KitswAuth = { current: async () => ({ uid: 'operator', email: 'operator@kitsw.ac.in', emailVerified: true }) };
+  dom.window.OrderService = {
+    me: async () => ({ isOperator: true }),
+    configuration: async () => ({ paymentMode: 'self_declared' }),
+    shop: async () => ({ acceptingOrders: true }),
+    operatorOrders: async () => ({ orders: [order] }),
+    operatorAction: async (id, action, body) => {
+      actions.push({ action, body });
+      order = { ...order, ...(action === 'cash' ? { paymentStatus: 'paid', paymentMethod: 'cash', paymentReceivedMs: Date.now() } : { status: body.status }) };
+      return { order };
+    }
+  };
+  try {
+    dom.window.eval(fs.readFileSync(path.join(root, 'operator.js'), 'utf8')); await tick();
+    assert.equal($('#operator-orders form').hidden, false);
+    const form = $('#operator-orders form');
+    form.querySelector('input[type=number]').value = '5';
+    form.querySelectorAll('input[type=checkbox]').forEach(input => { input.checked = true; });
+    form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })); await tick();
+    assert.equal(actions[0].action, 'cash');
+    assert.equal(actions[0].body.studentPresent, true);
+    assert.equal(actions[0].body.amountPaise, 500);
+
+    const start = [...$('#operator-orders').querySelectorAll('button')].find(button => button.textContent === 'Start printing');
+    assert.equal(start.disabled, false);
+    start.click(); await tick();
+    assert.equal(actions.length, 1);
+    assert.match($('#operator-feedback').textContent, /student is present/);
+    const present = $('#operator-orders').querySelector('input[type=checkbox]');
+    present.checked = true;
+    [...$('#operator-orders').querySelectorAll('button')].find(button => button.textContent === 'Start printing').click(); await tick();
+    assert.equal(actions[1].action, 'status');
+    assert.equal(actions[1].body.status, 'printing');
+    assert.equal(actions[1].body.studentPresent, true);
+    [...$('#operator-orders').querySelectorAll('button')].find(button => button.textContent === 'Mark ready to collect').click(); await tick();
+    assert.equal(actions[2].body.status, 'ready');
+    [...$('#operator-orders').querySelectorAll('button')].find(button => button.textContent === 'Confirm handed over').click(); await tick();
+    assert.equal(actions[3].body.status, 'collected');
+  } finally { dom.window.close(); }
+});
+
 test('daily earnings update before shop close, include paid declarations, and exclude unpaid orders', async () => {
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'http://localhost/operator.html', runScripts: 'outside-only' });
   const NativeDate = dom.window.Date;
