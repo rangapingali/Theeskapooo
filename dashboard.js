@@ -42,8 +42,8 @@
       $('#pages').closest('label').classList.toggle('manual-pages', Boolean(item.manualPages));
       if (item.counting || item.countError || !item.settings.pages) $('#pages').value = '';
       $('#pages').placeholder = item.counting ? 'Counting...' : item.manualPages ? 'Enter pages to print' : 'Unavailable';
-      $('#page-source').textContent = item.counting ? 'Counting pages...' : item.countError || (item.manualPages ? 'Enter the page count from Print Preview in your document app. The shop checks it before printing. PDF gives the most predictable layout.' : 'Automatically counted. No entry needed.');
-    } else { $('#pages').value = ''; $('#page-source').textContent = 'Select a file to detect its pages.'; }
+      $('#page-source').textContent = item.counting ? 'Counting pages...' : item.countError || (item.manualPages ? 'Enter pages from Print Preview; the shop checks the count. PDF preserves layout.' : 'Counted automatically.');
+    } else { $('#pages').value = ''; $('#page-source').textContent = 'Select a file.'; }
     renderFiles();
   }
   function renderFiles() {
@@ -330,7 +330,7 @@
       if (order.status === 'cancelled' && order.cancellationReason) card.append(node('p',order.cancellationReason,'notice'));
       if (order.offlineNumber) {
         const badge = node('div',undefined,'collection-slot');
-        badge.append(node('strong','Offline ID ' + String(order.offlineNumber).padStart(3,'0')),node('small','Show this number and your order to the shop. It is an identification number, not a queue position.'));
+        badge.append(node('strong','Offline ID ' + String(order.offlineNumber).padStart(3,'0')),node('small','Show this ID at the shop; it is not your queue position.'));
         if (order.paymentAppointment) badge.append(node('span', appointmentLabel(order.paymentAppointment)));
         card.append(badge);
         if (!['collected','cancelled'].includes(order.status)) card.append(node('p',order.paymentStatus === 'unpaid' ? 'Waiting for your visit and payment. The shop prints only while you are present.' : 'Payment received at the shop. Your position follows payment time; stay for printing.','notice'));
@@ -494,7 +494,7 @@
     $('#pickup').closest('label').hidden = offline;
     $('#pickup-time-label').hidden = offline || $('#pickup').value !== 'later';
     $('#payment-date').min = new Date(Date.now()+19800000).toISOString().slice(0,10);
-    $('#payment-guide').textContent = 'Online: pay and confirm before ordering. Offline: choose your payment appointment and place the order now. Show your offline ID at the counter and pay; stay while printing. The print queue follows payment time.';
+    $('#payment-guide').textContent = 'Online: pay before ordering. Offline: choose a payment time, then show your ID and stay while printing. Queue follows payment time.';
     $('#checkout-note').hidden = false;
     $('#checkout-note').textContent = offline ? 'Place now to get your offline ID. Your payment appointment does not reserve a queue position.' : 'Next: pay by UPI, tick the confirmation and select Done to place your order.';
   }

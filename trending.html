@@ -2,25 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"><link rel="icon" type="image/svg+xml" href="theeskapooo-icon.svg"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Trending prints · THEESKAPOOO</title>
-  <link rel="stylesheet" href="styles.css?v=checkout-recovery-8"><link rel="stylesheet" href="dashboard.css?v=checkout-recovery-8">
+  <link rel="stylesheet" href="styles.css?v=checkout-recovery-8"><link rel="stylesheet" href="dashboard.css?v=mobile-layout-1">
   <script src="firebase-config.js" defer></script><script src="auth-service.js" defer></script><script src="order-service.js?v=trending-prints-1" defer></script><script src="trending.js" defer></script>
 </head>
 <body class="dashboard shop-dashboard">
-  <aside class="sidebar"><a class="brand product-brand" href="index.html" aria-label="THEESKAPOOO home"><img class="product-logo" src="theeskapooo-logo.svg" width="460" height="112" alt="THEESKAPOOO - Print. Pick up. Pooo!"></a><span class="nav-caption">SHOP WORKSPACE</span><nav><a class="nav-item" href="operator.html">Orders &amp; payments</a><a class="nav-item active" href="trending.html" aria-current="page">Trending prints</a><a class="nav-item" href="dashboard.html">Student dashboard</a></nav><div class="sidebar-note"><strong>Ready-to-print campus documents.</strong><p>Add a familiar document title and its price. Students can select it without uploading the file.</p></div><div class="sidebar-team"><img src="tech-titans.svg" width="184" height="46" alt="Tech Titans"></div></aside>
+  <aside class="sidebar"><a class="brand product-brand" href="index.html" aria-label="THEESKAPOOO home"><img class="product-logo" src="theeskapooo-logo.svg" width="460" height="112" alt="THEESKAPOOO - Print. Pick up. Pooo!"></a><span class="nav-caption">SHOP WORKSPACE</span><nav><a class="nav-item" href="operator.html">Orders &amp; payments</a><a class="nav-item active" href="trending.html" aria-current="page">Trending prints</a><a class="nav-item" href="dashboard.html">Student dashboard</a></nav><div class="sidebar-note"><strong>Ready-to-print documents.</strong><p>Add the title and price; students select it without uploading.</p></div><div class="sidebar-team"><img src="tech-titans.svg" width="184" height="46" alt="Tech Titans"></div></aside>
   <div class="workspace"><header class="dashboard-header"><span class="breadcrumb">THEESKAPOOO / Shop / Trending prints</span><div class="user-menu"><span id="trending-operator-email">Checking access…</span><a href="operator.html" class="quiet">Orders dashboard</a></div></header><main class="dashboard-main">
     <div id="trending-banner" class="notice" role="status">Verifying your operator access…</div>
-    <div class="page-heading"><div><p class="eyebrow">QUICK PRINT CATALOG</p><h1>Trending prints.</h1><p>Manage the titles and prices for documents already kept ready at the shop.</p></div><button class="secondary-action" id="trending-refresh" type="button">Refresh</button></div>
+    <div class="page-heading"><div><p class="eyebrow">QUICK PRINT CATALOG</p><h1>Trending prints.</h1><p>Manage ready-to-print titles and prices.</p></div><button class="secondary-action" id="trending-refresh" type="button">Refresh</button></div>
     <section id="trending-admin" hidden>
       <form id="trending-add-form" class="panel setting-grid trending-add-form">
-        <div class="panel-heading wide-field"><span class="step-number">✦</span><div><h2>Add a quick print</h2><p>Students will see this title and price in their new-order screen.</p></div></div>
+        <div class="panel-heading wide-field"><span class="step-number">✦</span><div><h2>Add a quick print</h2><p>Shown in the student order screen.</p></div></div>
         <label class="wide-field">Document title<input id="trending-title" name="title" type="text" maxlength="100" required placeholder="For example, T&amp;P training form"></label>
         <label>Price (₹)<input id="trending-price" name="price" type="number" min="1" max="50000" step="0.01" required placeholder="For example, 5"></label>
         <div class="wide-field"><button class="primary-action" type="submit">Add to trending prints</button></div>
       </form>
-      <section class="panel trending-catalog-panel"><h2>Available quick prints</h2><p class="microcopy">Changing a price affects new orders only; existing orders keep their original price.</p><div id="trending-admin-list" class="trending-admin-list"></div></section>
+      <section class="panel trending-catalog-panel"><h2>Available quick prints</h2><p class="microcopy">Price changes apply to new orders only.</p><div id="trending-admin-list" class="trending-admin-list"></div></section>
     </section>
     <p id="trending-feedback" class="notice" role="status" hidden></p>
-    <footer class="dashboard-footer"><span>THEESKAPOOO</span><span>One account. Student and operator workspaces.</span></footer>
+    <footer class="dashboard-footer"><span>THEESKAPOOO</span><span>Student and operator workspaces</span></footer>
   </main></div>
 </body>
 </html>

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#174d3d">
   <meta name="description" content="THEESKAPOOO student portal. Upload your documents, choose your printing preferences, and collect on campus.">
   <title>Student Login · THEESKAPOOO</title>
-  <link rel="stylesheet" href="styles.css?v=checkout-recovery-8">
+  <link rel="stylesheet" href="styles.css?v=mobile-layout-1">
   <script src="firebase-config.js" defer></script>
   <script src="auth-service.js" defer></script>
   <script src="app.js?v=checkout-recovery-8" defer></script>
@@ -20,7 +20,7 @@
     <section class="intro" aria-labelledby="intro-title">
       <div class="eyebrow"><span></span> LESS WAITING. MORE LIVING.</div>
       <h1 id="intro-title">Your documents.<br>Your settings.<br><em>Your time.</em></h1>
-      <p class="intro-copy">From your hostel room to your next lecture.<br class="desktop-break"> Send your files ahead. Pick up your prints on campus.</p>
+      <p class="intro-copy">Send files ahead. Pick up prints on campus.</p>
       <div class="print-scene" aria-hidden="true">
         <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
         <span class="spark spark-one">✦</span><span class="spark spark-two">+</span>
@@ -38,17 +38,17 @@
         <span class="portal-label">STUDENT PORTAL</span>
         <div class="auth-tabs" aria-label="Account options"><button type="button" data-mode="login" aria-pressed="true">Log in</button><button type="button" data-mode="register" aria-pressed="false">Create account</button></div>
         <h2 id="login-title">Welcome back.</h2>
-        <p class="login-subtitle">Your next print is just a login away.</p>
+        <p class="login-subtitle">Sign in to prepare your print order.</p>
         <form id="login-form" novalidate>
           <label for="email">College email address</label>
           <div class="input-wrap"><span aria-hidden="true">@</span><input id="email" name="email" type="email" placeholder="rollnumber@kitsw.ac.in" autocomplete="username" spellcheck="false" autocapitalize="none" required aria-describedby="email-hint email-error"></div>
-          <p class="field-hint" id="email-hint">Use your student email ending in @kitsw.ac.in. You stay signed in on this device until you sign out.</p>
+          <p class="field-hint" id="email-hint">Use your @kitsw.ac.in email.</p>
           <p class="field-error" id="email-error" hidden></p>
           <div id="password-fields">
           <label for="password">THEESKAPOOO password</label>
           <div class="input-wrap password-wrap"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg><input id="password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required aria-describedby="password-error"><button class="password-toggle" type="button" aria-label="Show password" aria-pressed="false">Show</button></div>
           <p class="field-error" id="password-error" hidden></p>
-          <p id="password-hint" class="field-hint" hidden>Create a separate app password: at least 8 characters, with uppercase, lowercase and a number.</p>
+          <p id="password-hint" class="field-hint" hidden>At least 8 characters, including uppercase, lowercase and a number.</p>
           </div>
           <div id="confirm-fields" hidden>
             <label for="confirm-password">Confirm password</label>
@@ -69,10 +69,9 @@
           <button type="button" class="text-button" id="sign-out">Sign out</button>
         </section>
         <button type="button" class="text-button back-login" id="back-login" hidden>← Back to login</button>
-        <div class="student-note"><span aria-hidden="true">ⓘ</span><p>One campus. One print stop.<br><span>Use your college email to get started.</span></p></div>
+        <div class="student-note"><span aria-hidden="true">ⓘ</span><p>For KITSW students.<br><span>Use your college email.</span></p></div>
         <p class="preview-note" id="service-note" role="status">Checking account service…</p>
       </div>
-      <p class="below-card">A simpler way to print. A little more time for you.</p>
       <p class="below-card"><a href="dashboard.html?preview=1">Explore the dashboard preview →</a></p>
     </section>
   </main>

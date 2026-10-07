@@ -35,8 +35,8 @@ function setMode(next, focus = true) {
   message('');
   const register = mode === 'register';
   const reset = mode === 'reset';
-  $('#login-title').textContent = register ? 'Join your print stop.' : reset ? 'Forgot your password?' : 'Welcome back.';
-  $('.login-subtitle').textContent = register ? 'Create your account with your college email.' : reset ? 'We will email you a link to reset your app password.' : 'Your next print is just a login away.';
+  $('#login-title').textContent = register ? 'Create your account.' : reset ? 'Forgot your password?' : 'Welcome back.';
+  $('.login-subtitle').textContent = register ? 'Use your college email.' : reset ? 'We will email a reset link.' : 'Sign in to prepare your print order.';
   $('#password-fields').hidden = reset;
   password.disabled = reset;
   password.autocomplete = register ? 'new-password' : 'current-password';
@@ -100,7 +100,7 @@ function showAccount(user) {
   $('#login-title').textContent = verified ? 'You are signed in.' : 'Verify your email.';
   $('.login-subtitle').textContent = verified ? 'Welcome to THEESKAPOOO.' : 'One quick step to confirm you are part of KITSW.';
   $('#account-badge').textContent = verified ? 'College email verified' : 'Check your college inbox';
-  $('#account-message').textContent = verified ? 'Your account is ready. Open your dashboard to prepare documents and manage print orders.' : 'Open the verification link in your email, then return here to continue. Check your spam folder too.';
+  $('#account-message').textContent = verified ? 'Your account is ready. Open your dashboard.' : 'Verify your email to continue. Check spam if needed.';
   $('#open-dashboard').hidden = !verified;
   $('#account-email').textContent = user.email;
   $('#verification-actions').hidden = verified;
@@ -181,7 +181,7 @@ $('#sign-out').addEventListener('click', async () => {
 });
 setMode('login', false);
 if (auth.configured()) {
-  $('#service-note').textContent = 'Use a separate Xerox app password, not your college email password.';
+  $('#service-note').textContent = 'Use your Xerox app password, not your college password.';
   perform(async () => {
     const user = await auth.current();
     message('');
