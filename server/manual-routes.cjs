@@ -102,14 +102,15 @@ module.exports = function manualRoutes(app, deps) {
     let updated;
     await db.runTransaction(async tx => {
       const s = await tx.get(ref); if (!s.exists) throw fail(404, 'Order not found.');
-      if (s.data().uid === req.student.uid) throw fail(403, 'Ask another operator to handle your own order.');
-      if (req.body.status === 'printing' && s.data().paymentPreference === 'offline' && req.body.studentPresent !== true) throw fail(409,'Offline documents can only be printed while the student is present.');
-      if (req.body.status === 'printing' && s.data().files.some(file => file.pageCountSource === 'manual') && req.body.pagesChecked !== true) throw fail(409, 'Check the student-entered page counts before printing.');
-      const patch = logic.statusPatch(s.data(), req.body.status);
+      const order = s.data();
+      if (order.uid === req.student.uid) throw fail(403, 'Ask another operator to handle your own order.');
+      if (req.body.status === 'printing' && order.paymentPreference === 'offline' && req.body.studentPresent !== true) throw fail(409,'Offline documents can only be printed while the student is present.');
+      if (req.body.status === 'printing' && (order.files || []).some(file => file.pageCountSource === 'manual') && req.body.pagesChecked !== true) throw fail(409, 'Check the student-entered page counts before printing.');
+      const patch = logic.statusPatch(order, req.body.status);
       if (['collected', 'cancelled'].includes(patch.status)) patch.closedMs = Date.now();
-      if (patch.closedMs) await require('./offline-numbers.cjs').releaseOfflineNumber(tx,db,s.data(),ref.id,paymentConfig.ordersCollection);
+      if (patch.closedMs) await require('./offline-numbers.cjs').releaseOfflineNumber(tx,db,order,ref.id,paymentConfig.ordersCollection);
       tx.update(ref, patch); audit(tx, ref, req.student, 'status_changed', patch);
-      updated = { ...s.data(), ...patch };
+      updated = { ...order, ...patch };
     }, ['collected','cancelled'].includes(req.body.status) ? undefined : ref);
     if (updated.status === 'collected') {
       try {

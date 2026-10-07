@@ -55,6 +55,11 @@ test('manual API enforces ownership, operator approval, pending status, idempote
     assert.equal((await post(`operator/orders/${offlineId}/cash`, { amountPaise: 500, receiptChecked: true, studentPresent: true }, 'operator')).status, 200);
     assert.equal((await post(`operator/orders/${offlineId}/status`, { status: 'printing' }, 'operator')).status, 409);
     assert.equal((await post(`operator/orders/${offlineId}/status`, { status: 'printing', studentPresent: true }, 'operator')).status, 200);
+    const legacyId = crypto.randomUUID();
+    db.data.set('orders/' + legacyId, { uid: 'student1', status: 'accepted', paymentStatus: 'declared_paid' });
+    const legacyPrinting = await post(`operator/orders/${legacyId}/status`, { status: 'printing' }, 'operator');
+    assert.equal(legacyPrinting.status, 200);
+    assert.equal(legacyPrinting.data.order.status, 'printing');
     const collectedId = crypto.randomUUID();
     db.data.set('orders/' + collectedId, { uid: 'student1', status: 'ready', paymentStatus: 'declared_paid', quoteAmountPaise: 6000, files: [{ path: 'private/handed-over.pdf' }] });
     db.data.set('uploadSessions/' + collectedId, { state: 'ordered', collection: 'orders', files: { one: { path: 'private/handed-over.pdf' } } });
