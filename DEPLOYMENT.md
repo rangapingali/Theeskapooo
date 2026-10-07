@@ -120,7 +120,7 @@ The production dependency audit still reports two moderate findings in the trans
 
 | Symptom | Check |
 | --- | --- |
-| No open port / service unreachable | Web Service selected, start command correct, `HOST=0.0.0.0`, no hard-coded `PORT` |
+| No open port / service unreachable | Set `HOST=0.0.0.0` and redeploy. The updated server also detects Render and binds to all interfaces automatically. Let Render supply `PORT`. |
 | Credential file missing / startup crash | Secret filename, full valid JSON and `/etc/secrets/firebase-admin.json` match |
 | Storage reconnecting / health check 503 | Supabase project active, secret valid, bucket private and file limit 25 MB |
 | Pages load but orders disabled | `KITSW_ENABLE_ORDERS=true`, deployed after saving variables, storage check passed |
@@ -129,6 +129,10 @@ The production dependency audit still reports two moderate findings in the trans
 | First page slow after inactivity | Expected Free-plan wake-up; give it about a minute |
 
 Share only the public service URL and redacted error messages for troubleshooting. Never share the secret file or environment-variable values.
+
+Render is pinned to Node 22 using `.node-version`. Set `NODE_VERSION=22` in the Render dashboard too, since that setting overrides the file. The package engine range supports Node 22/24 instead of selecting any future major release.
+
+If a Firebase Admin private key has been shared in chat, screenshots or GitHub, delete/revoke that key in Google Cloud Console → IAM & Admin → Service Accounts → the Firebase Admin account → Keys. Create a replacement and paste it directly into Render's Secret File, and update your private local credential file if it used the revoked key. Do not delete the entire service account. Close credential tabs and clear editor selections before sending IDE context.
 
 ## Official references
 

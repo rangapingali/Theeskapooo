@@ -7,7 +7,6 @@
   let declarationMode = false;
   let orders = [], actor, allowed = false, busy = false, filter = 'all', slotVisibility = '';
   let earningsTimer;
-  const earningsCutoffMinutes = 17 * 60 + 30;
   function message(text) { $('#operator-feedback').textContent = text; $('#operator-feedback').hidden = !text; }
   function indiaDateKey(date) {
     const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
@@ -66,15 +65,14 @@
 
     const section = $('#daily-earnings');
     const now = new Date();
-    const clock = indiaClock(now);
-    section.hidden = !allowed || clock.minutes < earningsCutoffMinutes;
+    section.hidden = !allowed;
     if (section.hidden) return;
 
     const today = indiaDateKey(now);
     const received = paymentsMarkedPaidOn(today)
       .sort((a, b) => a.paymentReceivedMs - b.paymentReceivedMs);
     const total = received.reduce((sum, order) => sum + order.quoteAmountPaise, 0);
-    $('#daily-earnings-date').textContent = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'full' }).format(now) + ' · Daily close: 5:30 PM IST';
+    $('#daily-earnings-date').textContent = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'full' }).format(now) + ' · Live total · Daily close: 5:30 PM IST';
     $('#daily-earnings-total').textContent = money(total);
     $('#daily-earnings-count').textContent = String(received.length);
     const list = $('#daily-earnings-orders');
@@ -103,12 +101,10 @@
     if (!allowed) return;
     const now = new Date();
     const { minutes, seconds } = indiaClock(now);
-    const refreshAtCutoff = minutes < earningsCutoffMinutes;
-    const nextEventMinutes = refreshAtCutoff ? earningsCutoffMinutes : 24 * 60;
-    const delay = (nextEventMinutes - minutes) * 60_000 - seconds * 1_000 - now.getMilliseconds();
+    const delay = (24 * 60 - minutes) * 60_000 - seconds * 1_000 - now.getMilliseconds();
     earningsTimer = setTimeout(async () => {
+      await load();
       render();
-      if (refreshAtCutoff) await load();
       scheduleEarningsTransition();
     }, Math.max(1_000, delay));
   }
@@ -188,7 +184,8 @@
         badge.append(node('strong', 'Slot ' + slot.slot + ' / No. ' + String(slot.number).padStart(3, '0')), node('span', slot.date + ' | ' + slot.startHour + ':00-' + slot.endHour + ':00 IST'));
         card.append(badge);
       }
-      order.files.forEach((file, index) => {
+      (order.trendingPrints || []).forEach(item => card.append(node('p', `Trending quick print: ${item.title} · ${money(item.pricePaise)}`, 'operator-file')));
+      (order.files || []).forEach((file, index) => {
         const s = file.settings; const row = node('p', undefined, 'operator-file');
         row.append(node('strong', file.name));
         const specs = node('span', undefined, 'print-specs');

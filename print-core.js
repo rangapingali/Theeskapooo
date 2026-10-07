@@ -34,7 +34,15 @@
     if (file.size > 25 * 1024 * 1024) return 'Each file must be 25 MB or smaller.';
     return '';
   }
-  const api = { formats, rates, defaults, pageCount, estimate, fileError, priorityFee };
+  function paymentAppointment(value, now = Date.now()) {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value.date || '') || !/^\d{2}:\d{2}$/.test(value.time || '') || value.time < '09:00' || value.time > '16:30') throw Error('Choose a payment date and time between 9:00 AM and 4:30 PM IST.');
+    const startMs = Date.parse(value.date + 'T' + value.time + ':00+05:30');
+    if (!Number.isFinite(startMs) || new Date(startMs + 19800000).toISOString().slice(0,10) !== value.date) throw Error('Choose a valid payment date.');
+    const deadlineMs = startMs + 3600000;
+    if (startMs < now) throw Error('Choose a payment time in the future.');
+    return { date: value.date, time: value.time, scheduledMs: startMs, deadlineMs };
+  }
+  const api = { formats, rates, defaults, pageCount, estimate, fileError, priorityFee, paymentAppointment };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PrintCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

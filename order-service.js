@@ -1,4 +1,10 @@
 window.OrderService = (() => {
+  async function readResponse(response, fallback) {
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw Error(data?.error || fallback);
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw Error('The server is starting or returned an unexpected response. Keep this page open and retry; do not repeat a payment.');
+    return data;
+  }
   // Same-origin API. Use the Node server for live orders; Live Server supports preview only.
   async function request(path, options = {}) {
     const user = await window.KitswAuth.current();
@@ -9,9 +15,7 @@ window.OrderService = (() => {
       ...options, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(30000)
     }); } catch { throw Error('Connection interrupted. Your saved orders are safe. Reconnect and refresh before repeating an order or payment.'); }
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw Error(data.error || 'The order service is unavailable. Please try again later.');
-    return data;
+    return readResponse(response, 'The order service is unavailable. Please try again later.');
   }
   async function configuration() {
     const unavailable = { ordersEnabled: false, paymentsEnabled: false, backendUnavailable: true };
@@ -29,12 +33,13 @@ window.OrderService = (() => {
     for (let i = 0; i < files.length; i++) {
       const item = files[i];
       onProgress(i + 1, files.length, 0);
-      const response = await fetch('/api/uploads/' + encodeURIComponent(orderId) + '/' + encodeURIComponent(item.id) + '?name=' + encodeURIComponent(item.file.name), {
+      let response;
+      try { response = await fetch('/api/uploads/' + encodeURIComponent(orderId) + '/' + encodeURIComponent(item.id) + '?name=' + encodeURIComponent(item.file.name), {
         method: 'POST', headers: { Authorization: 'Bearer ' + await user.getIdToken(), 'Content-Type': 'application/octet-stream', 'X-File-Size': String(item.file.size) },
         body: item.file, signal: AbortSignal.timeout(120000)
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw Error(data.error || 'Document upload failed. Please retry.');
+      }); } catch { throw Error('Upload connection interrupted. Your files and settings stay here. Retry to continue the same checkout.'); }
+      const data = await readResponse(response, 'Document upload failed. Please retry.');
+      if (typeof data.path !== 'string') throw Error('Upload was not confirmed by the server. Keep your files selected and retry.');
       if (data.pageCountSource !== 'manual' && data.pages !== item.settings.pages) throw Error('The verified page count differs from the preview. Select this file again before ordering.');
       uploaded.push({ name: item.file.name, size: item.file.size, path: data.path, settings: { ...item.settings }, pageCountSource: data.pageCountSource || 'automatic' });
       onProgress(i + 1, files.length, 100);
@@ -92,6 +97,10 @@ window.OrderService = (() => {
     submitManualPayment: (id, reference) => post(`/orders/${encodeURIComponent(id)}/manual-payment`, { reference }),
     operatorOrders: () => request('/operator/orders'),
     operatorAction: (id, action, body) => post(`/operator/orders/${encodeURIComponent(id)}/${action}`, body),
+    trendingPrints: () => request('/trending-prints'),
+    addTrendingPrint: body => post('/operator/trending-prints', body),
+    updateTrendingPrint: (id, body) => request(`/operator/trending-prints/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
+    removeTrendingPrint: id => request(`/operator/trending-prints/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     list: () => request('/orders'), create: body => post('/orders', body)
   };
 })();

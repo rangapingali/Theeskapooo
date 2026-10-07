@@ -2,7 +2,10 @@ const core = require('../print-core.js');
 const idPattern = /^[a-f0-9-]{36}$/;
 function validateOrder(body, uid) {
   if (!body || !idPattern.test(body.id || '') || body.shop !== 'campus' || !['offline','online'].includes(body.paymentPreference)) throw Error('Invalid order details.');
-  if (!Array.isArray(body.files) || body.files.length < 1 || body.files.length > 10) throw Error('Choose 1 to 10 documents.');
+  if (!Array.isArray(body.files) || body.files.length > 10) throw Error('Choose up to 10 documents.');
+  const trendingPrintIds = body.trendingPrintIds === undefined ? [] : body.trendingPrintIds;
+  if (!Array.isArray(trendingPrintIds) || trendingPrintIds.length > 10 || body.files.length + trendingPrintIds.length > 10 || trendingPrintIds.some(id => !idPattern.test(id || '')) || new Set(trendingPrintIds).size !== trendingPrintIds.length) throw Error('Choose up to 10 valid print items.');
+  if (!body.files.length && !trendingPrintIds.length) throw Error('Choose a document or a trending print.');
   if (typeof body.notes !== 'string' || body.notes.length > 500) throw Error('Instructions must be 500 characters or fewer.');
   if (body.priority !== undefined && typeof body.priority !== 'boolean') throw Error('Choose a valid urgency option.');
   let bytes = 0;
@@ -33,8 +36,9 @@ function validateOrder(body, uid) {
     pickupTime = date.toISOString();
   }
   const priority = body.priority === true;
+  const paymentAppointment = body.paymentPreference === 'offline' ? core.paymentAppointment(body.paymentAppointment) : null;
   const priorityFeePaise = priority ? core.priorityFee * 100 : 0;
   estimate.amount += priorityFeePaise / 100;
-  return { id: body.id, files, estimate, priority, priorityFeePaise, notes: body.notes, pickupTime, shop: 'campus', paymentPreference: body.paymentPreference };
+  return { id: body.id, files, trendingPrintIds, trendingPrints: [], estimate, priority, priorityFeePaise, notes: body.notes, pickupTime, paymentAppointment, shop: 'campus', paymentPreference: body.paymentPreference };
 }
 module.exports = { validateOrder, idPattern };

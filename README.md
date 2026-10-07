@@ -1,6 +1,6 @@
 # THEESKAPOOO
 
-A KITSW campus printing app by **Tech Titans**. Students upload documents, choose print settings, pay by UPI and collect their prints using a dated slot and number. Authorized operators manage the queue, urgent orders, shop availability and handover from a separate dashboard.
+A KITSW campus printing app by **Tech Titans**. Students upload documents or select shop-prepared trending prints, choose print settings, pay by UPI and collect their prints using a dated slot and number. Authorized operators manage orders and maintain the quick-print title/price catalog from a separate dashboard.
 
 ## Run locally
 
@@ -16,6 +16,8 @@ See [SETUP.md](SETUP.md), [SUPABASE_SETUP.md](SUPABASE_SETUP.md) and [UX_UPDATES
 ## Payment behavior
 
 The current `self_declared` mode creates orders only after a student ticks the payment checkbox and selects Done. It records **Declared paid**, without recipient approval. This is a temporary student declaration; it does not verify a bank transfer. Merchant gateway integration and production payment testing remain necessary for verified payments.
+
+The operator dashboard shows today's paid totals live in IST. An order affects earnings only when its payment is recorded (including student-declared payments); an unpaid offline order is not counted at placement. The separate Trending prints workspace lets operators list ready-to-print document titles and prices. Students can choose those items without uploading a file; the server snapshots the current catalog price into the order.
 
 ## Netlify frontend deployment
 

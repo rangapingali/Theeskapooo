@@ -10,6 +10,12 @@ If saving fails after a transfer, keep checkout open and retry Done; do not tran
 
 The preview pages still demonstrate the older example payment flow and never transfer money. Use a configured local server for the current payment-first workflow.
 
+## Trending quick prints and daily totals
+
+Operators manage ready-to-print campus documents in the separate **Trending prints** workspace. Each entry is a title and a price. Students can select one or more entries from the new-order screen, alongside uploaded documents or by themselves. The server checks each selected item against the active catalog, calculates the charge from the saved price, and keeps the title and price on the order so later catalog edits do not change existing orders. These selections do not need document uploads.
+
+Today's earnings are visible throughout the day and refresh with the operator order queue. Paid and student-declared-paid orders are included using their payment-received time in IST; unpaid offline reservations are excluded until the shop records payment. This avoids treating an order placed without payment as money received.
+
 - Firebase login now uses local persistence. Closing/reopening the browser keeps the account signed in on that browser profile. Explicit sign-out, cleared browser storage, private browsing, account disablement or token revocation can end a session. Passwords are handled by Firebase, not saved by this app.
 - Ordinary requests no longer force a Firebase user reload. Shop actions show saving feedback immediately and render the updated order returned by the server. Failed updates retain entered payment fields for retry. Status/cash transactions read and write only that order and its new nested audit records; multi-record payment approvals and slot allocation remain atomic across their records. Existing audit records are retained. Student queries use the `uid` database index to load that student's rows rather than the full collection, with a compatibility fallback until indexes deploy.
 - Urgency is optional, defaults off and adds ₹8 **once per order**. The server calculates the fee and includes it in the payment total. The shop sees highlighted urgent orders first. Priority does not promise a completion time or bypass a paused shop.

@@ -13,7 +13,7 @@
     "storage:cleanup": "node --env-file-if-exists=.env server/run-cleanup.cjs"
   },
   "engines": {
-    "node": ">=22"
+    "node": "22.x || 24.x"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

@@ -9,9 +9,9 @@ if (fs.existsSync(output) && (fs.lstatSync(output).isSymbolicLink() || fs.realpa
 fs.rmSync(output, { recursive: true, force: true });
 fs.mkdirSync(path.join(output, 'vendor'), { recursive: true });
 const publicFiles = [
-  'index.html', 'college-source.html', 'dashboard.html', 'operator.html',
+  'index.html', 'college-source.html', 'dashboard.html', 'operator.html', 'trending.html',
   'styles.css', 'dashboard.css', 'app.js', 'auth-service.js', 'firebase-config.js',
-  'print-core.js', 'order-service.js', 'dashboard.js', 'operator.js', 'order-alerts.js',
+  'print-core.js', 'order-service.js', 'dashboard.js', 'operator.js', 'trending.js', 'order-alerts.js',
   'document-pages.js', 'document-pages-core.js', 'document-pages-worker.js',
   'tech-titans.svg', 'kitsw-logo.jpg', 'theeskapooo-logo.svg', 'theeskapooo-icon.svg',
   'notification-voice.mp3'

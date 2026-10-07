@@ -5,6 +5,7 @@ function isOperator(token, emails = '') {
   return token?.email_verified === true && allowed.includes((token.email || '').toLowerCase());
 }
 function checkPayable(order) {
+  if (order.offlineNumber) fail('This offline order is paid at the counter during your payment appointment.');
   if (['paid','declared_paid'].includes(order.paymentStatus)) fail('Payment is already recorded for this order.');
   if (['cancelled','collected'].includes(order.status)) fail('This order is no longer payable.');
   if (order.reviewStatus !== 'approved' || !Number.isInteger(order.quoteAmountPaise) || order.quoteAmountPaise <= 0) fail('The operator must review your files and confirm the amount first.');
@@ -55,6 +56,7 @@ function quotePatch(order, amountPaise) {
   return { quoteAmountPaise: amountPaise, reviewStatus: 'approved', status: order.status === 'submitted' ? 'accepted' : order.status };
 }
 function statusPatch(order, next) {
+  if (next === 'printing' && !['paid','declared_paid'].includes(order.paymentStatus)) fail('Record payment before starting printing.');
   const allowed = { submitted: ['cancelled'], accepted: ['printing','cancelled'], printing: ['ready'], ready: ['collected'] };
   if (!allowed[order.status]?.includes(next)) fail('That status change is not allowed. Refresh the order.');
   if (next === 'collected' && !['paid','declared_paid'].includes(order.paymentStatus)) fail('Confirm payment before handing over and marking collected.');

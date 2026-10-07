@@ -114,6 +114,28 @@ test('unconfigured live service cannot submit an order', async () => {
   finally { ui.dom.window.close(); }
 });
 
+test('disabled checkout explains activation and review requirements, then reconnects without losing files', async () => {
+  let ordersEnabled=false, paymentsEnabled=false;
+  const ui=await dashboard(false,{
+    configuration:async()=>({ordersEnabled,paymentsEnabled,paymentMode:'self_declared'}),
+    me:async()=>({isOperator:true})
+  });
+  try {
+    await ui.add(['notes.pdf']);
+    assert.equal(ui.$('#place-order').disabled,true);
+    assert.match(ui.$('#checkout-status').textContent,/ordering has not been activated/);
+    assert.equal(ui.$('#retry-connection').hidden,false);
+    ordersEnabled=true;ui.$('#retry-connection').click();await tick();await tick();
+    assert.match(ui.$('#checkout-status').textContent,/UPI checkout has not been activated/);
+    assert.equal(ui.$('#operator-link').hidden,false);
+    paymentsEnabled=true;ui.$('#retry-connection').click();await tick();await tick();
+    assert.match(ui.$('#checkout-status').textContent,/Tick/);
+    assert.equal(ui.$('#total-files').textContent,'1');
+    ui.review();assert.equal(ui.$('#place-order').disabled,false);
+    assert.equal(ui.$('#checkout-status').hidden,true);
+  } finally {ui.dom.window.close();}
+});
+
 test('manual page entry and priority fee update the total without altering automatic page counts', async () => {
   const ui = await dashboard(true, { documentPages: { count: async f => f.name.endsWith('.docx') ? null : 5 } });
   try {
@@ -177,12 +199,41 @@ test('verified operator receives both dashboard links', async () => {
   try { assert.equal(ui.$('#operator-link').hidden, false); assert.equal(ui.$('#operator-nav').hidden, false); }
   finally { ui.dom.window.close(); }
 });
+test('trending quick print contributes its listed price and places without an upload', async () => {
+  const id = '00000000-0000-4000-8000-000000000001';
+  let created, uploadCalls = 0;
+  const ui = await dashboard(false, {
+    configuration: async () => ({ ordersEnabled: true, paymentsEnabled: false }),
+    trendingPrints: async () => ({ prints: [{ id, title: 'T&P training form', pricePaise: 625 }] }),
+    upload: async () => { uploadCalls++; return []; },
+    create: async body => {
+      created = { ...body, id: body.id, createdAt: new Date().toISOString(), status: 'accepted', paymentStatus: 'unpaid', quoteAmountPaise: 625, estimate: { amount: 6.25 }, files: [], trendingPrints: [{ id, title: 'T&P training form', pricePaise: 625 }] };
+      return { order: created };
+    },
+    list: async () => ({ orders: created ? [created] : [] })
+  });
+  try {
+    await tick();
+    const choice = ui.$('#trending-print-list input');
+    assert.ok(choice);
+    choice.checked = true; choice.dispatchEvent(new ui.w.Event('change'));
+    assert.equal(ui.$('#total-price').textContent, '₹6.25');
+    assert.equal(ui.$('#total-files').textContent, '1');
+    ui.review(); assert.equal(ui.$('#place-order').disabled, false);
+    ui.$('#place-order').click(); await tick(); await tick();
+    assert.equal(uploadCalls, 0);
+    assert.deepEqual(Array.from(created.trendingPrintIds), [id]);
+    assert.deepEqual(Array.from(created.files), []);
+    assert.match(ui.$('#orders-list').textContent, /T&P training form/);
+  } finally { ui.dom.window.close(); }
+});
 test('failed live upload keeps files and shows failure instead of claiming order success', async () => {
   let created = false;
   const ui = await dashboard(false, { configuration: async () => ({ ordersEnabled: true }), upload: async () => { throw Error('Upload denied'); }, create: async () => { created = true; } });
   try {
     await ui.add(['report.pdf']); ui.review(); ui.$('#place-order').click(); await tick();
     assert.equal(created, false); assert.equal(ui.$('#total-files').textContent, '1'); assert.match(ui.$('#global-message').textContent, /Upload denied/);
+    assert.match(ui.$('#checkout-error').textContent,/Upload denied/);
     assert.equal(ui.$('#place-order').disabled, false);
   } finally { ui.dom.window.close(); }
 });

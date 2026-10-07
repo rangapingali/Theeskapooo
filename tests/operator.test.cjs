@@ -92,18 +92,19 @@ test('shop actions show immediate saving feedback and reuse the confirmed order 
   }finally{dom.window.close();}
 });
 
-test('daily earnings appear at 5:30 PM IST and include student-declared payments marked paid today', async () => {
+test('daily earnings update before shop close, include paid declarations, and exclude unpaid orders', async () => {
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'http://localhost/operator.html', runScripts: 'outside-only' });
   const NativeDate = dom.window.Date;
-  const fixedNow = NativeDate.parse('2026-10-06T12:00:00.000Z');
+  const fixedNow = NativeDate.parse('2026-10-06T11:45:00.000Z');
   dom.window.Date = class extends NativeDate {
     constructor(...args) { super(...(args.length ? args : [fixedNow])); }
     static now() { return fixedNow; }
   };
   const todayPaid = [
     { id: 'today-one', uid: 'student', email: 'student@example.com', status: 'collected', files: [], paymentStatus: 'paid', paymentReceivedMs: NativeDate.parse('2026-10-06T08:00:00.000Z'), quoteAmountPaise: 750, paymentMethod: 'cash' },
-    { id: 'today-two', uid: 'student', email: 'student@example.com', status: 'collected', files: [], paymentStatus: 'paid', paymentReceivedMs: NativeDate.parse('2026-10-06T11:59:00.000Z'), quoteAmountPaise: 500, paymentMethod: 'manual_upi' },
+    { id: 'today-two', uid: 'student', email: 'student@example.com', status: 'collected', files: [], paymentStatus: 'paid', paymentReceivedMs: NativeDate.parse('2026-10-06T11:30:00.000Z'), quoteAmountPaise: 500, paymentMethod: 'manual_upi' },
     { id: 'student-declared', uid: 'student', email: 'student@example.com', status: 'collected', files: [], paymentStatus: 'declared_paid', paymentReceivedMs: NativeDate.parse('2026-10-06T11:00:00.000Z'), quoteAmountPaise: 900 },
+    { id: 'unpaid-today', uid: 'student', email: 'student@example.com', status: 'accepted', files: [], paymentStatus: 'unpaid', quoteAmountPaise: 9999 },
     { id: 'yesterday', uid: 'student', email: 'student@example.com', status: 'collected', files: [], paymentStatus: 'paid', paymentReceivedMs: NativeDate.parse('2026-10-05T12:00:00.000Z'), quoteAmountPaise: 1200 },
     { id: 'india-date-boundary', uid: 'student', email: 'student@example.com', status: 'collected', files: [], paymentStatus: 'paid', paymentReceivedMs: NativeDate.parse('2026-10-04T22:00:00.000Z'), quoteAmountPaise: 300 },
     { id: 'two-days-ago', uid: 'student', email: 'student@example.com', status: 'collected', files: [], paymentStatus: 'paid', paymentReceivedMs: NativeDate.parse('2026-10-04T12:00:00.000Z'), quoteAmountPaise: 2500 },
@@ -164,7 +165,7 @@ test('orders past their pickup slot leave the active queue and stay in history',
   } finally { dom.window.close(); }
 });
 
-test('daily earnings remain hidden before 5:30 PM IST', async () => {
+test('daily earnings remain visible before 5:30 PM IST', async () => {
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'http://localhost/operator.html', runScripts: 'outside-only' });
   const NativeDate = dom.window.Date;
   const fixedNow = NativeDate.parse('2026-10-06T11:59:00.000Z');
@@ -177,7 +178,7 @@ test('daily earnings remain hidden before 5:30 PM IST', async () => {
   try {
     dom.window.eval(fs.readFileSync(path.join(root, 'operator.js'), 'utf8'));
     await tick();
-    assert.equal(dom.window.document.querySelector('#daily-earnings').hidden, true);
+    assert.equal(dom.window.document.querySelector('#daily-earnings').hidden, false);
     assert.equal(dom.window.document.querySelector('#earnings-history').hidden, false);
   } finally { dom.window.close(); }
 });

@@ -41,7 +41,8 @@ async function provider(route, body) {
 }
 function publicOrder(snapshot) {
   const order = snapshot.data();
-  return { id: snapshot.id, priority: order.priority === true, priorityFeePaise: order.priorityFeePaise || 0, collectionSlot: order.collectionSlot || null, documentsDeleted: order.documentsDeleted === true, files: order.files.map(({ path: ignored, generation: ignoredGeneration, ...file }) => file), estimate: order.estimate, status: order.status, paymentStatus: order.paymentStatus, paymentPreference: order.paymentPreference, quoteAmountPaise: order.quoteAmountPaise, createdAt: order.createdAt.toDate().toISOString(), pickupTime: order.pickupTime, manualPayment: order.manualPayment ? { ...order.manualPayment, submittedAt: order.manualPayment.submittedAt?.toDate?.().toISOString() || null } : null, paymentMethod: order.paymentMethod || null, paymentReviewNote: order.paymentReviewNote || '' };
+  const paymentReceivedMs = order.paymentReceivedMs || order.paidAt?.toDate?.().getTime() || order.paymentDeclaredAt?.toDate?.().getTime() || null;
+  return { id: snapshot.id, offlineNumber: order.offlineNumber || null, paymentAppointment: order.paymentAppointment || null, cancellationReason: order.cancellationReason || '', paymentReceivedMs, priority: order.priority === true, priorityFeePaise: order.priorityFeePaise || 0, collectionSlot: order.collectionSlot || null, documentsDeleted: order.documentsDeleted === true, files: (order.files || []).map(({ path: ignored, generation: ignoredGeneration, ...file }) => file), trendingPrints: (order.trendingPrints || []).map(({ id, title, pricePaise }) => ({ id, title, pricePaise })), estimate: order.estimate, status: order.status, paymentStatus: order.paymentStatus, paymentPreference: order.paymentPreference, quoteAmountPaise: order.quoteAmountPaise, createdAt: order.createdAt.toDate().toISOString(), pickupTime: order.pickupTime, manualPayment: order.manualPayment ? { ...order.manualPayment, submittedAt: order.manualPayment.submittedAt?.toDate?.().toISOString() || null } : null, paymentMethod: order.paymentMethod || null, paymentReviewNote: order.paymentReviewNote || '' };
 }
 async function markPaid(ref, payment) {
   await db.runTransaction(async tx => {
@@ -52,7 +53,7 @@ async function markPaid(ref, payment) {
       if (order.paymentId !== payment.id) throw failure(409, 'Another payment already settled this order. Contact the shop.');
       return;
     }
-    tx.update(ref, { paymentStatus: 'paid', paymentId: payment.id, paidAt: FieldValue.serverTimestamp(), checkoutState: 'paid' });
+    tx.update(ref, { paymentStatus: 'paid', paymentId: payment.id, paidAt: FieldValue.serverTimestamp(), paymentReceivedMs: Date.now(), checkoutState: 'paid' });
   });
 }
 // Raw bytes must be verified before parsing webhook JSON.
@@ -92,6 +93,7 @@ require('./manual-routes.cjs')(app, { db, bucket, paymentConfig, publicOrder, Fi
 require('./payment-drafts.cjs')(app, { db, paymentConfig, publicOrder, env: process.env });
 require('./upload-routes.cjs')(app, { db, bucket });
 require('./shop-settings.cjs').registerShop(app, { db, isOperator: token => require('./manual-payments.cjs').isOperator(token, process.env.PRINT_OPERATOR_EMAILS) });
+require('./trending-prints.cjs')(app, { db, isOperator: token => require('./manual-payments.cjs').isOperator(token, process.env.PRINT_OPERATOR_EMAILS) });
 require('./order-routes.cjs')(app, { db, bucket, paymentConfig, publicOrder, FieldValue });
 
 async function ownedOrder(req) {
@@ -106,6 +108,7 @@ app.post('/api/orders/:id/checkout', async (req, res) => {
   let stored;
   await db.runTransaction(async tx => {
     const snapshot = await tx.get(ref); const order = snapshot.data();
+    if (order.offlineNumber) throw failure(409, 'Pay for this offline order at the counter.');
     if (order.paymentStatus === 'paid') throw failure(409, 'This order is already paid. Refresh your orders.');
     if (['cancelled','collected'].includes(order.status)) throw failure(409, 'This order is no longer payable online.');
     if (!Number.isInteger(order.quoteAmountPaise) || order.quoteAmountPaise <= 0 || order.quoteAmountPaise > 5000000 || order.reviewStatus !== 'approved') throw failure(409, 'The shop must review the documents and confirm your quote first.');
@@ -139,7 +142,7 @@ app.post('/api/orders/:id/verify-payment', async (req, res) => {
   await markPaid(ref, payment); res.json({ status: 'paid' });
 });
 // Only these public assets are served. Never expose .env, backend code or credentials.
-const publicFiles = ['index.html','college-source.html','dashboard.html','operator.html','operator.js','styles.css','dashboard.css','app.js','auth-service.js','firebase-config.js','print-core.js','order-service.js','dashboard.js','tech-titans.svg','kitsw-logo.jpg','theeskapooo-logo.svg','theeskapooo-icon.svg','document-pages.js','document-pages-core.js','document-pages-worker.js','order-alerts.js','notification-voice.mp3'];
+const publicFiles = ['index.html','college-source.html','dashboard.html','operator.html','operator.js','trending.html','trending.js','styles.css','dashboard.css','app.js','auth-service.js','firebase-config.js','print-core.js','order-service.js','dashboard.js','tech-titans.svg','kitsw-logo.jpg','theeskapooo-logo.svg','theeskapooo-icon.svg','document-pages.js','document-pages-core.js','document-pages-worker.js','order-alerts.js','notification-voice.mp3'];
 app.get('/vendor/pdf-lib.min.js', (req, res) => res.sendFile(path.join(root, 'node_modules/pdf-lib/dist/pdf-lib.min.js')));
 app.get('/', (req, res) => res.sendFile(path.join(root, 'index.html')));
 for (const file of publicFiles) app.get('/' + file, (req, res) => res.sendFile(path.join(root, file)));
@@ -152,7 +155,8 @@ app.use((error, req, res, next) => {
   res.status(status).json({ error: error.httpStatus ? error.message : status === 400 ? 'Invalid request JSON.' : 'The server could not complete the request. Check server credentials, Realtime Database and Supabase storage setup.' });
 });
 if (require.main === module) {
-  app.listen(Number(process.env.PORT) || 4174, process.env.HOST || '127.0.0.1', () => console.log('THEESKAPOOO: http://localhost:' + (process.env.PORT || 4174))).on('error', error => {
+  const listen = require('./listen-options.cjs').listenOptions();
+  const server = app.listen(listen, () => console.log('THEESKAPOOO listening on ' + listen.host + ':' + server.address().port)).on('error', error => {
     console.error(error.code === 'EADDRINUSE' ? 'This port already has a server.' : 'Server could not listen.');
     process.exit(error.code === 'EADDRINUSE' ? 78 : 1);
   });
@@ -161,7 +165,7 @@ if (require.main === module) {
     const connectStorage = async () => {
       if (checking || storageReady) return;
       checking = true;
-      try { await bucket.check(); storageReady = true; require('./document-cleanup.cjs').startCleanup({ db, bucket }); }
+      try { await bucket.check(); storageReady = true; require('./document-cleanup.cjs').startCleanup({ db, bucket }); require('./offline-numbers.cjs').startOfflineExpiry(db); }
       catch { console.error('Document storage unavailable; website stays open. Retrying in 30 seconds.'); }
       finally { checking = false; }
     };
