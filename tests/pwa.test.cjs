@@ -20,7 +20,7 @@ test('PWA manifest declares a standalone app with valid install icons', () => {
 });
 
 test('app pages register a network-only service worker and publish all PWA assets', () => {
-  for (const file of ['index.html', 'dashboard.html', 'operator.html', 'trending.html']) {
+  for (const file of ['index.html', 'dashboard.html', 'operator.html', 'earnings.html', 'trending.html']) {
     const html = fs.readFileSync(path.join(root, file), 'utf8');
     assert.match(html, /rel="manifest" href="manifest\.webmanifest"/, file);
     assert.match(html, /src="pwa\.js" defer/, file);

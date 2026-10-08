@@ -2,6 +2,7 @@
   const $ = selector => document.querySelector(selector);
   const api = window.OrderService;
   const preview = new URLSearchParams(location.search).get('preview') === '1';
+  const earningsPage = document.body.classList.contains('earnings-dashboard');
   const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value / 100);
   const node = (tag, text, css) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (css) el.className = css; return el; };
   let declarationMode = false;
@@ -41,6 +42,8 @@
   }
   function renderEarnings() {
     const history = $('#earnings-history');
+    const section = $('#daily-earnings');
+    if (!history || !section) return;
     history.hidden = !allowed;
     if (allowed) {
       const days = $('#earnings-history-days');
@@ -63,7 +66,6 @@
       }
     }
 
-    const section = $('#daily-earnings');
     const now = new Date();
     section.hidden = !allowed;
     if (section.hidden) return;
@@ -160,6 +162,10 @@
     }); area.append(form); card.append(area);
   }
   function render() {
+    if (earningsPage) {
+      renderEarnings();
+      return;
+    }
     renderEarnings();
     slotVisibility = slotVisibilityKey();
     const list = $('#operator-orders'); list.replaceChildren();
@@ -232,9 +238,14 @@
     loading = true;
     if (!preview) {
       try {
-        const results = await Promise.allSettled([refreshShop(), api.operatorOrders()]);
-        if (results[1].status === 'fulfilled' && !busy) orders = results[1].value.orders;
-        else if (results[1].status === 'rejected') message('Could not load orders: ' + results[1].reason.message);
+        if (earningsPage) {
+          const result = await api.operatorOrders();
+          if (!busy) orders = result.orders;
+        } else {
+          const results = await Promise.allSettled([refreshShop(), api.operatorOrders()]);
+          if (results[1].status === 'fulfilled' && !busy) orders = results[1].value.orders;
+          else if (results[1].status === 'rejected') message('Could not load orders: ' + results[1].reason.message);
+        }
       } finally { loading = false; }
     } else {
       loading = false;
@@ -258,8 +269,10 @@
         $('#operator-email').textContent = actor.email;
         allowed = (await api.me()).isOperator;
         if (api.configuration) declarationMode = (await api.configuration()).paymentMode === 'self_declared';
-        $('#count-payments').closest('.panel').hidden = declarationMode;
-        $('[data-filter=pending]').hidden = declarationMode;
+        const paymentCount = $('#count-payments');
+        if (paymentCount) paymentCount.closest('.panel').hidden = declarationMode;
+        const pendingFilter = $('[data-filter=pending]');
+        if (pendingFilter) pendingFilter.hidden = declarationMode;
         if (declarationMode) { $('.sidebar-note strong').textContent = 'Print. Prepare. Hand over.'; $('.sidebar-note p').textContent = 'Students confirm payment before new orders arrive. Declared paid means student-confirmed, not bank-verified. No payment approval step is needed.'; }
         $('#operator-banner').textContent = allowed ? 'Operator workspace - your student account remains available using the Student dashboard link.' : 'Your student account is active, but operator access has not been assigned.';
       } catch (error) { $('#operator-banner').textContent = error.message || 'Operator service unavailable. Server setup is required.'; }
@@ -278,15 +291,17 @@
     renderShop();
   }
   function renderShop() {
+    if (!$('#shop-status') || !$('#shop-status-detail') || !$('#shop-toggle')) return;
     if (!shop) { $('#shop-status').textContent = 'Shop availability unavailable'; $('#shop-status-detail').textContent = shopError || (allowed ? 'Checking the shop connection. Use Refresh to retry.' : 'Sign in with an authorized shop account to manage availability.'); $('#shop-toggle').disabled = true; $('#shop-toggle').textContent = 'Use Refresh to reconnect'; return; }
     $('#shop-status').textContent = shop.acceptingOrders ? 'Open - accepting orders' : 'Busy - new orders paused';
     $('#shop-toggle').textContent = shop.acceptingOrders ? 'Pause new orders' : 'Resume accepting orders';
     $('#shop-toggle').disabled = !allowed || busy;
     $('#shop-status-detail').textContent = shop.acceptingOrders ? 'Students can place fixed-price orders now.' : 'Students can track and pay for existing orders, but cannot place new ones.';
   }
-  $('#shop-toggle').addEventListener('click', async () => {
+  const shopToggle = $('#shop-toggle');
+  if (shopToggle) shopToggle.addEventListener('click', async () => {
     if (!allowed || busy) return;
-    $('#shop-toggle').disabled = true;
+    shopToggle.disabled = true;
     try { shop = preview ? { acceptingOrders: !shop.acceptingOrders } : await api.setShop(!shop.acceptingOrders); message(preview ? 'PREVIEW: shop availability changed locally.' : 'Shop availability updated for students.'); }
     catch (error) { message(error.message); }
     finally { renderShop(); }
@@ -294,13 +309,13 @@
   start().then(() => { renderShop(); scheduleEarningsTransition(); });
   // Fetch new approvals without erasing a receipt review being edited.
   let editing = false, polling = false;
-  $('#operator-orders').addEventListener('input', () => { editing = true; });
+  $('#operator-orders')?.addEventListener('input', () => { editing = true; });
   $('#operator-refresh').addEventListener('click', () => { editing = false; });
   setInterval(async () => {
     if (preview || !allowed || busy || polling || document.hidden) return;
     polling = true;
     try {
-      await refreshShop();
+      if (!earningsPage) await refreshShop();
       if (editing) return;
       const latest = (await api.operatorOrders()).orders;
       const slotChanged = slotVisibilityKey(latest) !== slotVisibility;

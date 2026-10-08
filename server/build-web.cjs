@@ -9,7 +9,7 @@ if (fs.existsSync(output) && (fs.lstatSync(output).isSymbolicLink() || fs.realpa
 fs.rmSync(output, { recursive: true, force: true });
 fs.mkdirSync(path.join(output, 'vendor'), { recursive: true });
 const publicFiles = [
-  'index.html', 'college-source.html', 'dashboard.html', 'operator.html', 'trending.html',
+  'index.html', 'college-source.html', 'dashboard.html', 'operator.html', 'earnings.html', 'trending.html',
   'manifest.webmanifest', 'service-worker.js', 'pwa.js', 'pwa-icon-192.png', 'pwa-icon-512.png',
   'styles.css', 'dashboard.css', 'app.js', 'auth-service.js', 'firebase-config.js',
   'print-core.js', 'order-service.js', 'dashboard.js', 'operator.js', 'trending.js', 'order-alerts.js',

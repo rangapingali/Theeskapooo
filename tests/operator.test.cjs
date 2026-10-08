@@ -157,7 +157,7 @@ test('completed history orders show most recently completed first', async () => 
 });
 
 test('daily earnings update before shop close, include paid declarations, and exclude unpaid orders', async () => {
-  const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'http://localhost/operator.html', runScripts: 'outside-only' });
+  const dom = new JSDOM(fs.readFileSync(path.join(root, 'earnings.html'), 'utf8'), { url: 'http://localhost/earnings.html', runScripts: 'outside-only' });
   const NativeDate = dom.window.Date;
   const fixedNow = NativeDate.parse('2026-10-06T11:45:00.000Z');
   dom.window.Date = class extends NativeDate {
@@ -230,7 +230,7 @@ test('orders past their pickup slot leave the active queue and stay in history',
 });
 
 test('daily earnings remain visible before 5:30 PM IST', async () => {
-  const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'http://localhost/operator.html', runScripts: 'outside-only' });
+  const dom = new JSDOM(fs.readFileSync(path.join(root, 'earnings.html'), 'utf8'), { url: 'http://localhost/earnings.html', runScripts: 'outside-only' });
   const NativeDate = dom.window.Date;
   const fixedNow = NativeDate.parse('2026-10-06T11:59:00.000Z');
   dom.window.Date = class extends NativeDate {
@@ -245,4 +245,16 @@ test('daily earnings remain visible before 5:30 PM IST', async () => {
     assert.equal(dom.window.document.querySelector('#daily-earnings').hidden, false);
     assert.equal(dom.window.document.querySelector('#earnings-history').hidden, false);
   } finally { dom.window.close(); }
+});
+
+test('daily earnings have a dedicated operator dashboard separate from orders', () => {
+  const orders = fs.readFileSync(path.join(root, 'operator.html'), 'utf8');
+  const earnings = fs.readFileSync(path.join(root, 'earnings.html'), 'utf8');
+  assert.doesNotMatch(orders, /id="daily-earnings"/);
+  assert.doesNotMatch(orders, /id="earnings-history"/);
+  assert.match(orders, /href="earnings\.html">Daily earnings/);
+  assert.match(earnings, /class="nav-item active" href="earnings\.html" aria-current="page">Daily earnings/);
+  assert.match(earnings, /id="daily-earnings"/);
+  assert.match(earnings, /id="earnings-history"/);
+  assert.doesNotMatch(earnings, /id="operator-orders"/);
 });
