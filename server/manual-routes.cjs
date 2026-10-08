@@ -55,7 +55,7 @@ module.exports = function manualRoutes(app, deps) {
   app.get('/api/operator/orders', async (req, res) => {
     await require('./offline-numbers.cjs').expireOfflineOrders(db,paymentConfig.ordersCollection);
     const list = await db.collection(paymentConfig.ordersCollection).orderBy('createdAt', 'desc').get();
-    res.json({ orders: list.docs.map(s => ({ ...publicOrder(s), uid: s.data().uid, email: s.data().email, notes: s.data().notes, reviewStatus: s.data().reviewStatus, lockedAmountPaise: s.data().lockedAmountPaise || null, providerOrderId: s.data().providerOrderId || null })) });
+    res.json({ orders: list.docs.map(s => ({ ...publicOrder(s), uid: s.data().uid, email: s.data().email, notes: s.data().notes, reviewStatus: s.data().reviewStatus, closedMs: s.data().closedMs || null, lockedAmountPaise: s.data().lockedAmountPaise || null, providerOrderId: s.data().providerOrderId || null })) });
   });
   app.post('/api/operator/orders/:id/quote', async (req, res) => {
     throw fail(410, 'Manual quoting has been removed. New orders use fixed prices.');

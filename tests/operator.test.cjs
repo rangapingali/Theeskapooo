@@ -138,6 +138,24 @@ test('offline orders can record cash and status actions carry the required stude
   } finally { dom.window.close(); }
 });
 
+test('completed history orders show most recently completed first', async () => {
+  const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'http://localhost/operator.html', runScripts: 'outside-only' });
+  const orders = [
+    { id: 'older-order-0001', uid: 'student', email: 'student@example.com', status: 'collected', closedMs: 1000, createdAt: '2026-10-01T00:00:00.000Z', paymentStatus: 'paid', files: [] },
+    { id: 'newer-order-0002', uid: 'student', email: 'student@example.com', status: 'collected', closedMs: 3000, createdAt: '2026-10-02T00:00:00.000Z', paymentStatus: 'paid', files: [] },
+    { id: 'middle-order-0003', uid: 'student', email: 'student@example.com', status: 'cancelled', closedMs: 2000, createdAt: '2026-10-01T12:00:00.000Z', paymentStatus: 'unpaid', files: [] }
+  ];
+  dom.window.KitswAuth = { current: async () => ({ uid: 'operator', email: 'operator@kitsw.ac.in', emailVerified: true }) };
+  dom.window.OrderService = { me: async () => ({ isOperator: true }), shop: async () => ({ acceptingOrders: true }), operatorOrders: async () => ({ orders }) };
+  try {
+    dom.window.eval(fs.readFileSync(path.join(root, 'operator.js'), 'utf8'));
+    await tick();
+    dom.window.document.querySelector('[data-filter=history]').click();
+    const ids = [...dom.window.document.querySelectorAll('#operator-orders .order-card h2')].map(heading => heading.textContent);
+    assert.deepEqual(ids, ['#NEWER-OR', '#MIDDLE-O', '#OLDER-OR']);
+  } finally { dom.window.close(); }
+});
+
 test('daily earnings update before shop close, include paid declarations, and exclude unpaid orders', async () => {
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'http://localhost/operator.html', runScripts: 'outside-only' });
   const NativeDate = dom.window.Date;

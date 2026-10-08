@@ -21,7 +21,7 @@ function validateOrder(body, uid) {
     const s = file.settings;
     if (!s || typeof s.range !== 'string' || s.range.length > 200) throw Error('Invalid page range.');
     const settings = Object.fromEntries(Object.keys(core.defaults).map(key => [key, s[key]]));
-    const result = core.estimate(settings);
+    const result = core.estimate(settings, { image: core.isImageFile(file.name) });
     ['amount','sheets','printedSides','minutes'].forEach(key => estimate[key] += result[key]);
     estimate.needsQuote ||= result.needsQuote;
     return { name: file.name, size: file.size, path: file.path, settings };

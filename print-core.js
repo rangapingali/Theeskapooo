@@ -2,7 +2,9 @@
   const formats = ['pdf','doc','docx','ppt','pptx','xls','xlsx','odt','ods','odp','rtf','txt','csv','jpg','jpeg','png','webp','heic','heif','bmp','gif','tif','tiff'];
   const priorityFee = 8;
   const rates = { A4: { bw: 5, colour: 10 }, A3: { bw: 5, colour: 10 }, Letter: { bw: 5, colour: 10 }, Legal: { bw: 5, colour: 10 } };
+  const imageFormats = ['jpg','jpeg','png','webp','heic','heif','bmp','gif','tif','tiff'];
   const defaults = { copies: 1, colour: 'bw', sides: 'single', size: 'A4', range: '', pages: 1, orientation: 'portrait', layout: 1, binding: 'none' };
+  function isImageFile(name) { return imageFormats.includes(String(name).split('.').pop().toLowerCase()); }
   function pageCount(range, total) {
     if (!Number.isInteger(total) || total < 1 || total > 10000) throw Error('Enter a page count from 1 to 10,000.');
     if (!String(range).trim()) return total;
@@ -16,14 +18,16 @@
     }
     return selected.size;
   }
-  function estimate(settings) {
+  function estimate(settings, { image = false } = {}) {
     const s = settings;
     if (!Number.isInteger(s.copies) || s.copies < 1 || s.copies > 500) throw Error('Copies must be between 1 and 500.');
     if (!rates[s.size] || !['bw','colour'].includes(s.colour) || !['single','double'].includes(s.sides) || ![1,2,4].includes(s.layout) || !['portrait','landscape'].includes(s.orientation) || !['none','staple','spiral'].includes(s.binding)) throw Error('Choose valid print settings.');
     const pages = pageCount(s.range, s.pages);
     const sidesPerCopy = Math.ceil(pages / s.layout);
-    const printedSides = sidesPerCopy * s.copies;
-    const sheets = Math.ceil(sidesPerCopy / (s.sides === 'double' ? 2 : 1)) * s.copies;
+    const printedSides = image ? Math.ceil(pages * s.copies / s.layout) : sidesPerCopy * s.copies;
+    const sheets = image
+      ? Math.ceil(printedSides / (s.sides === 'double' ? 2 : 1))
+      : Math.ceil(sidesPerCopy / (s.sides === 'double' ? 2 : 1)) * s.copies;
     const rate = rates[s.size][s.colour];
     return { pages, printedSides, sheets, amount: rate === null ? 0 : printedSides * rate, needsQuote: rate === null || s.binding !== 'none', minutes: Math.ceil(printedSides / (s.colour === 'colour' ? 5 : 15)) + (s.binding === 'spiral' ? 5 * s.copies : 0) };
   }
@@ -42,7 +46,7 @@
     if (startMs < now) throw Error('Choose a payment time in the future.');
     return { date: value.date, time: value.time, scheduledMs: startMs, deadlineMs };
   }
-  const api = { formats, rates, defaults, pageCount, estimate, fileError, priorityFee, paymentAppointment };
+  const api = { formats, rates, defaults, pageCount, estimate, fileError, isImageFile, priorityFee, paymentAppointment };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PrintCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

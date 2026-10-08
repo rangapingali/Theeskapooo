@@ -6,7 +6,7 @@ function fixedPatch(order) {
   if (order.status !== 'submitted' || order.paymentStatus !== 'unpaid' || order.quoteAmountPaise != null || order.lockedAmountPaise || order.providerOrderId || order.manualPayee) return null;
   const estimate = { amount: 0, sheets: 0, printedSides: 0, minutes: 0, needsQuote: false };
   for (const file of order.files) {
-    const item = core.estimate(file.settings);
+    const item = core.estimate(file.settings, { image: core.isImageFile(file.name) });
     if (item.needsQuote) return null;
     for (const key of ['amount', 'sheets', 'printedSides', 'minutes']) estimate[key] += item[key];
   }

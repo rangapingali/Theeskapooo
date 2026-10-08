@@ -16,6 +16,16 @@ test('A4 estimates use confirmed rates and round duplex sheets per copy', () => 
   const multiple = core.estimate({ ...core.defaults, pages: 5, layout: 2, copies: 2, sides: 'double' });
   assert.equal(multiple.printedSides, 6); assert.equal(multiple.sheets, 4); assert.equal(multiple.amount, 30);
 });
+test('image layouts put multiple copies on each printed side and price the actual sides', () => {
+  const photo = { ...core.defaults, copies: 5, pages: 1 };
+  assert.equal(core.isImageFile('portrait.JPG'), true);
+  assert.equal(core.estimate({ ...photo, layout: 1 }, { image: true }).printedSides, 5);
+  assert.equal(core.estimate({ ...photo, layout: 2 }, { image: true }).printedSides, 3);
+  assert.equal(core.estimate({ ...photo, layout: 4 }, { image: true }).printedSides, 2);
+  assert.equal(core.estimate({ ...photo, layout: 4 }, { image: true }).amount, 10);
+  assert.equal(core.estimate({ ...photo, layout: 4, sides: 'double' }, { image: true }).sheets, 1);
+  assert.equal(core.isImageFile('report.pdf'), false);
+});
 test('all paper sizes use confirmed rates; unpriced binding remains unavailable', () => {
   const a3 = core.estimate({ ...core.defaults, size: 'A3' });
   assert.equal(a3.amount, 5); assert.equal(a3.needsQuote, false);
@@ -29,7 +39,7 @@ test('invalid print options and unsafe/oversized uploads are rejected', () => {
 });
 function fixture() {
   const id = crypto.randomUUID();
-  return { id, shop: 'campus', notes: '', pickupTime: null, paymentPreference: 'offline', files: [{ name: 'report.pdf', size: 500, path: `student-uploads/student1/${id}/${crypto.randomUUID()}.pdf`, settings: { ...core.defaults, pages: 4 } }] };
+  return { id, shop: 'campus', notes: '', pickupTime: null, paymentPreference: 'online', files: [{ name: 'report.pdf', size: 500, path: `student-uploads/student1/${id}/${crypto.randomUUID()}.pdf`, settings: { ...core.defaults, pages: 4 } }] };
 }
 test('server validates ownership references and ignores client-supplied totals and status', () => {
   const input = fixture(); input.estimate = { amount: 0 }; input.paymentStatus = 'paid';
@@ -37,6 +47,13 @@ test('server validates ownership references and ignores client-supplied totals a
   assert.equal(result.estimate.amount, 20); assert.equal(result.paymentStatus, undefined);
   assert.throws(() => validateOrder(input, 'another-student'));
   input.files.push(input.files[0]); assert.throws(() => validateOrder(input, 'student1'), /duplicate/);
+});
+test('server recalculates image n-up pricing from the trusted file extension', () => {
+  const input = fixture();
+  input.files[0].name = 'photo.jpg';
+  input.files[0].path = input.files[0].path.replace('.pdf', '.jpg');
+  input.files[0].settings = { ...core.defaults, pages: 1, copies: 5, layout: 4 };
+  assert.equal(validateOrder(input, 'student1').estimate.amount, 10);
 });
 test('server rejects format mismatch and oversized notes', () => {
   const input = fixture(); input.files[0].path = input.files[0].path.replace('.pdf', '.exe');

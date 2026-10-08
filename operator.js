@@ -5,7 +5,7 @@
   const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value / 100);
   const node = (tag, text, css) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (css) el.className = css; return el; };
   let declarationMode = false;
-  let orders = [], actor, allowed = false, busy = false, filter = 'all', slotVisibility = '';
+  let orders = [], actor, allowed = false, busy = false, loading = false, filter = 'all', slotVisibility = '';
   let earningsTimer;
   function message(text) { $('#operator-feedback').textContent = text; $('#operator-feedback').hidden = !text; }
   function indiaDateKey(date) {
@@ -169,7 +169,9 @@
     $('#count-ready').textContent = active.filter(o => o.status === 'ready').length;
     const selected = filter === 'history' ? orders.filter(order => ['collected','cancelled'].includes(order.status) || isPickupSlotExpired(order)) : active.filter(order => filter === 'all' || (filter === 'pending' ? order.paymentStatus === 'pending_verification' : order.status === filter));
     if (!selected.length) { list.append(node('div', allowed ? 'No orders in this queue.' : 'Operator access is required to view orders.', 'panel empty-orders')); return; }
-    selected.sort((a,b) => Number(b.priority === true) - Number(a.priority === true) || new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+    selected.sort((a,b) => filter === 'history'
+      ? (b.closedMs || Date.parse(b.createdAt) || 0) - (a.closedMs || Date.parse(a.createdAt) || 0)
+      : Number(b.priority === true) - Number(a.priority === true) || new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
     selected.forEach(order => {
       const card = node('article', undefined, 'panel order-card' + (order.priority ? ' priority-order' : ''));
       if (order.priority) card.append(node('strong', 'URGENT · Priority order · ₹8 extra included', 'priority-badge'));
@@ -189,7 +191,8 @@
         const s = file.settings; const row = node('p', undefined, 'operator-file');
         row.append(node('strong', file.name));
         const specs = node('span', undefined, 'print-specs');
-        [s.copies + ' copies', s.colour === 'bw' ? 'Black & white' : 'Colour', s.sides === 'double' ? 'Double-sided' : 'Single-sided', s.size, 'Pages: ' + (s.range || 'all (' + s.pages + ')'), (s.orientation || 'portrait'), (s.layout || 1) + ' per side'].forEach(label => specs.append(node('span', label)));
+        const image = /\.(jpg|jpeg|png|webp|heic|heif|bmp|gif|tif|tiff)$/i.test(file.name);
+        [s.copies + ' copies', s.colour === 'bw' ? 'Black & white' : 'Colour', s.sides === 'double' ? 'Double-sided' : 'Single-sided', s.size, 'Pages: ' + (s.range || 'all (' + s.pages + ')'), (s.orientation || 'portrait'), image ? (s.layout || 1) + ' image' + (s.layout === 1 ? '' : 's') + ' per side' : (s.layout || 1) + ' page' + (s.layout === 1 ? '' : 's') + ' per side'].forEach(label => specs.append(node('span', label)));
         row.append(specs);
         if (file.pageCountSource === 'manual') row.append(node('strong', 'Student-entered page count: ' + s.pages + ' — check the file before printing.', 'manual-page-warning'));
         const download = node('button', preview ? 'Preview file unavailable' : 'Download document', 'quiet'); download.disabled = preview;
@@ -225,11 +228,16 @@
     });
   }
   async function load() {
-    if (!allowed) return;
+    if (!allowed || loading) return;
+    loading = true;
     if (!preview) {
-      const results = await Promise.allSettled([refreshShop(), api.operatorOrders()]);
-      if (results[1].status === 'fulfilled' && !busy) orders = results[1].value.orders;
-      else if (results[1].status === 'rejected') message('Could not load orders: ' + results[1].reason.message);
+      try {
+        const results = await Promise.allSettled([refreshShop(), api.operatorOrders()]);
+        if (results[1].status === 'fulfilled' && !busy) orders = results[1].value.orders;
+        else if (results[1].status === 'rejected') message('Could not load orders: ' + results[1].reason.message);
+      } finally { loading = false; }
+    } else {
+      loading = false;
     }
     render();
   }

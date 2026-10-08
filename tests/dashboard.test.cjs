@@ -108,6 +108,43 @@ test('counting blocks checkout, then prices detected pages; errors do not become
     await ui.add(['essay.docx']); assert.equal(ui.$('#place-order').disabled, true); assert.match(ui.$('#summary-error').textContent, /Export to PDF/);
   } finally { ui.dom.window.close(); }
 });
+test('image n-up choices update layout wording and total estimate', async () => {
+  const ui = await dashboard();
+  try {
+    await ui.add(['photo.jpg']);
+    assert.equal(ui.$('#layout-label').firstChild.textContent, 'Images per printed side');
+    assert.equal(ui.$('#layout').options[1].textContent, '2 images per side');
+    ui.input('copies', 5);
+    ui.input('layout', 4);
+    assert.equal(ui.$('#total-sides').textContent, '2');
+    assert.match(ui.$('#total-price').textContent, /10/);
+    ui.$('#file-list .remove-file').click();
+    assert.equal(ui.$('#layout-label').firstChild.textContent, 'Pages per printed side');
+  } finally { ui.dom.window.close(); }
+});
+test('document page counting runs with a bounded two-file queue', async () => {
+  let active = 0, maximum = 0;
+  const resolvers = [];
+  const ui = await dashboard(true, {
+    documentPages: { count: () => new Promise(resolve => {
+      active++; maximum = Math.max(maximum, active);
+      resolvers.push(() => { active--; resolve(1); });
+    }) }
+  });
+  try {
+    await ui.add(['one.pdf', 'two.pdf', 'three.pdf', 'four.pdf']);
+    assert.equal(maximum, 2);
+    assert.equal(resolvers.length, 2);
+    resolvers.shift()(); await tick();
+    assert.equal(resolvers.length, 2);
+    while (resolvers.length) { resolvers.shift()(); await tick(); }
+    await tick();
+    assert.equal(active, 0);
+    assert.equal(maximum, 2);
+    ui.review();
+    assert.equal(ui.$('#place-order').disabled, false);
+  } finally { ui.dom.window.close(); }
+});
 test('unconfigured live service cannot submit an order', async () => {
   const ui = await dashboard(false);
   try { await ui.add(['report.pdf']); ui.review(); assert.equal(ui.$('#place-order').disabled, true); assert.match(ui.$('#mode-banner').textContent, /not activated/); }

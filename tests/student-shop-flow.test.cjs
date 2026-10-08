@@ -23,7 +23,7 @@ function database() {
 test('declaration checkout: private draft, explicit confirmation, immutable total, idempotent order, no recipient approval', async () => {
   const db=database(), app=express(); app.use(express.json());
   app.use((req,res,next)=>{const uid=req.get('x-user')||'student';req.student={uid,email:uid+'@kitsw.ac.in',email_verified:true};next();});
-  const deps={db,bucket:{file:()=>({getMetadata:async()=>[{size:100,contentType:'application/octet-stream',generation:'1'}]})},paymentConfig:{mode:'self_declared',enabled:true,ordersCollection:'orders',quotaCollection:'quotas'},publicOrder:s=>({id:s.id,...s.data()}),FieldValue:{serverTimestamp:()=>Date.now()},env:{PRINT_OPERATOR_EMAILS:'shop@kitsw.ac.in',MERCHANT_UPI_REFERENCE:'test@bank',MERCHANT_UPI_ACCOUNT_NAME:'Test'}};
+  const deps={db,bucket:{remove:async()=>{},file:()=>({getMetadata:async()=>[{size:100,contentType:'application/octet-stream',generation:'1'}]})},paymentConfig:{mode:'self_declared',enabled:true,ordersCollection:'orders',quotaCollection:'quotas'},publicOrder:s=>({id:s.id,...s.data()}),FieldValue:{serverTimestamp:()=>Date.now()},env:{PRINT_OPERATOR_EMAILS:'shop@kitsw.ac.in',MERCHANT_UPI_REFERENCE:'test@bank',MERCHANT_UPI_ACCOUNT_NAME:'Test'}};
   for(const route of ['payment-drafts','order-routes','manual-routes']) require('../server/'+route+'.cjs')(app,deps);
   app.use((e,req,res,next)=>res.status(e.httpStatus||500).json({error:e.message}));
   const server=app.listen(0,'127.0.0.1'); await new Promise(r=>server.once('listening',r));
@@ -88,7 +88,7 @@ test('student and shop journey: verified PDF price, unique slot, busy gating, ma
     assert.equal((await post('/operator/orders/'+id+'/payment-review',approval)).status,403);
     assert.equal((await post('/operator/orders/'+id+'/payment-review',approval,'shop')).status,200);
     for(const status of ['printing','ready','collected']) assert.equal((await post('/operator/orders/'+id+'/status',{status},'shop')).status,200);
-    const download=await fetch(base+'/operator/orders/'+id+'/files/0',{headers:{'X-User':'shop'}});assert.deepEqual(Buffer.from(await download.arrayBuffer()),Buffer.from(bytes));
+    const download=await fetch(base+'/operator/orders/'+id+'/files/0',{headers:{'X-User':'shop'}});assert.equal(download.status,410);assert.equal(objects.has(file.path),false);
     await post('/orders/'+nextId+'/manual-instructions',{});
     assert.equal((await post('/operator/orders/'+nextId+'/cash',{amountPaise:3000,receiptChecked:true},'shop')).status,409);
     assert.equal((await post('/operator/orders/'+nextId+'/cash',{amountPaise:3000,receiptChecked:true,noUpiReceived:true},'shop')).status,200);
@@ -100,6 +100,7 @@ test('student and shop journey: verified PDF price, unique slot, busy gating, ma
     assert.equal(manualUpload.status,201);const manual=await manualUpload.json();assert.equal(manual.pageCountSource,'manual');
     const manualInput={...order(manualId,manual.path),priority:true,priorityFeePaise:0,files:[{name:'report.txt',path:manual.path,size:txt.length,settings:{...require('../print-core.js').defaults,pages:4}}]};
     const urgent=await post('/orders',manualInput);assert.equal(urgent.status,201);assert.equal(urgent.data.order.quoteAmountPaise,2800);assert.equal(urgent.data.order.files[0].pageCountSource,'manual');
+    assert.equal((await post('/operator/orders/'+manualId+'/cash',{amountPaise:2800,receiptChecked:true},'shop')).status,200);
     assert.equal((await post('/operator/orders/'+manualId+'/status',{status:'printing'},'shop')).status,409);
     const checked=await post('/operator/orders/'+manualId+'/status',{status:'printing',pagesChecked:true},'shop');assert.equal(checked.status,200);assert.equal(checked.data.order.status,'printing');
   } finally {await new Promise(r=>server.close(r));}
