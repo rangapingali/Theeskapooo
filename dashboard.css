@@ -50,7 +50,12 @@
 
 @media(max-width:760px){
   .dashboard .sidebar{position:relative;inset:auto;width:100%;height:auto;padding:12px 16px 10px;border-right:0;border-bottom:1px solid #e4e9df}
-  .dashboard .sidebar .nav-caption,.dashboard .sidebar-note,.dashboard .sidebar-team{display:none}
+  .dashboard .sidebar .nav-caption,
+  .dashboard .sidebar .sidebar-note,
+  .dashboard .sidebar .sidebar-team{
+    display:none!important;
+    visibility:hidden!important;
+  }
   .dashboard .sidebar nav{display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;overflow-y:hidden;margin-top:10px;padding:0 0 3px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
   .dashboard .sidebar .nav-item{flex:0 0 auto;width:auto;min-height:44px;padding:9px 12px;font-size:15px;white-space:nowrap}
   .dashboard .sidebar .nav-item>span{font-size:18px}
@@ -173,19 +178,30 @@
     z-index:10;
   }
   .dashboard .sidebar .brand{display:none}
-  .dashboard .sidebar nav{display:flex;gap:4px;overflow:visible;margin:0;padding:0}
+  .dashboard .sidebar nav{display:flex;order:2;gap:4px;overflow:visible;margin:8px 0 0;padding:0}
+  .dashboard .sidebar .sidebar-team{
+    display:flex!important;
+    order:1;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    padding:0 0 4px;
+    border:0;
+    visibility:visible!important;
+  }
+  .dashboard .sidebar .sidebar-team img{display:block;width:120px;height:auto}
   .dashboard .sidebar .nav-item{
     flex:1 1 0;
     min-width:0;
-    min-height:64px;
+    min-height:68px;
     width:auto;
-    padding:6px 3px;
+    padding:6px 2px;
     flex-direction:column;
     justify-content:center;
     gap:3px;
     text-align:center;
     white-space:normal;
-    overflow-wrap:normal;
+    overflow-wrap:anywhere;
     word-break:normal;
     font-size:10px;
     line-height:1.2;
@@ -193,10 +209,14 @@
   .dashboard .sidebar .nav-item>span:not(.nav-label){font-size:22px;line-height:1}
   .dashboard .sidebar .nav-item>.nav-label{
     display:block;
+    width:100%;
+    min-width:0;
     max-width:100%;
     font-size:10px;
     line-height:1.2;
-    overflow-wrap:normal;
+    text-align:center;
+    white-space:normal;
+    overflow-wrap:anywhere;
     word-break:normal;
   }
   .dashboard .sidebar .nav-item b{
@@ -209,8 +229,7 @@
     padding:1px 5px;
   }
   .dashboard .sidebar .nav-item{position:relative}
-  .dashboard .sidebar .sidebar-team{display:none!important}
-  .dashboard .dashboard-main{padding-bottom:calc(82px + env(safe-area-inset-bottom))}
+  .dashboard .dashboard-main{padding-bottom:calc(108px + env(safe-area-inset-bottom))}
   .dashboard .setting-grid input,
   .dashboard .setting-grid select,
   .dashboard .setting-grid textarea{min-height:48px;padding:12px;font-size:16px}
