@@ -47,6 +47,7 @@ window.OrderAlerts = (() => {
     if (messages.length) {
       const notice = document.querySelector('#order-alert');
       if (notice) { notice.textContent = messages.join(' '); notice.hidden = false; }
+      window.AppNotifications?.notify('THEESKAPOOO update', messages.join(' '), 'student-orders');
       sound();
     }
   }

@@ -113,12 +113,9 @@ module.exports = function manualRoutes(app, deps) {
       updated = { ...order, ...patch };
     }, ['collected','cancelled'].includes(req.body.status) ? undefined : ref);
     if (updated.status === 'collected') {
-      try {
-        await require('./document-cleanup.cjs').deleteOrderDocuments({ db, bucket, collection: paymentConfig.ordersCollection, orderId: ref.id });
-        updated = { ...updated, documentsDeleted: true };
-      } catch {
-        throw fail(503, 'The order was handed over, but document removal is pending. The server will retry; refresh the order before taking further action.');
-      }
+      // Confirm the saved handover promptly; deletion failure must not look like a failed status update.
+      void require('./document-cleanup.cjs').deleteOrderDocuments({ db, bucket, collection: paymentConfig.ordersCollection, orderId: ref.id })
+        .catch(() => console.error('Collected document removal pending; scheduled cleanup will retry.'));
     }
     res.json({ ok: true, order: publicOrder({ id: ref.id, data: () => updated }) });
   });

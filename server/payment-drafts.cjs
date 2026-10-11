@@ -7,7 +7,7 @@ const fail = (code, message) => Object.assign(Error(message), { httpStatus: code
 const fingerprint = input => createHash('sha256').update(JSON.stringify(input)).digest('hex');
 function checkSession(input, session, uid) {
   if (!input.files.length) return;
-  if (!session || session.uid !== uid || session.state !== 'open' || Date.now() - session.createdMs >= 48*3600000) throw fail(409,'Upload session expired. Please select your files again.');
+  if (!session || session.uid !== uid || session.state !== 'open' || Date.now() - session.createdMs >= 24 * 3600000) throw fail(409,'Upload session expired. Please select your files again.');
   for(const file of input.files) {
     const verified = Object.values(session.files || {}).find(f => f.path === file.path && f.size === file.size);
     if (!verified || (!Number.isInteger(verified.pages) && verified.pageCountSource !== 'manual')) throw fail(400,'Wait for the documents to finish uploading.');
@@ -23,7 +23,7 @@ module.exports = function registerDrafts(app,{db,paymentConfig,publicOrder,env})
     if(input.estimate.needsQuote||!Number.isSafeInteger(baseAmountPaise)||baseAmountPaise<0||baseAmountPaise>5000000)throw fail(400,'Check the print settings and total before payment.');
     const ref=db.collection('paymentDrafts').doc(input.id);
     const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(new Date()).replaceAll('/','-');
-    let info,existingOrder;
+    let info,existingOrder,expiresMs;
     const hash=fingerprint(input);
     await db.runTransaction(async tx=>{
       const saved=await tx.get(db.collection(paymentConfig.ordersCollection).doc(input.id));
@@ -37,12 +37,15 @@ module.exports = function registerDrafts(app,{db,paymentConfig,publicOrder,env})
       const catalog=old ? priceSnapshot(input.trendingPrintIds,old.trendingPrints || []) : await resolveTrendingPrints(tx,db,input.trendingPrintIds);
       const amountPaise=baseAmountPaise+catalog.totalPaise;
       if(!Number.isSafeInteger(amountPaise)||amountPaise<100||amountPaise>5000000)throw fail(400,'Check the print settings and total before payment.');
-      if(input.files.length)checkSession(input,(await tx.get(db.collection('uploadSessions').doc(input.id))).data(),req.student.uid);
+      const session = input.files.length ? (await tx.get(db.collection('uploadSessions').doc(input.id))).data() : null;
+      if(input.files.length)checkSession(input,session,req.student.uid);
+      const createdMs = old?.createdMs || session?.createdMs || Date.now();
+      expiresMs = Math.min(createdMs + 24 * 3600000, session ? session.createdMs + 24 * 3600000 : Infinity);
       info=instructions({status:'checkout',paymentStatus:'unpaid',reviewStatus:'approved',quoteAmountPaise:amountPaise,manualPayee:old?.payee},input.id,env);
-      if(!old)tx.create(ref,{uid:req.student.uid,requestHash:hash,amountPaise,payee:info.payee,trendingPrints:catalog.prints,createdMs:Date.now(),state:'open'});
+      if(!old)tx.create(ref,{uid:req.student.uid,requestHash:hash,amountPaise,payee:info.payee,trendingPrints:catalog.prints,createdMs,state:'open'});
     });
     if(existingOrder)return res.json({order:existingOrder});
-    res.json({...info,qr:await QRCode.toDataURL(info.uri,{width:256,margin:2}),verifiedByBank:false});
+    res.json({...info,expiresMs,qr:await QRCode.toDataURL(info.uri,{width:256,margin:2}),verifiedByBank:false});
   });
 };
 module.exports.fingerprint=fingerprint;

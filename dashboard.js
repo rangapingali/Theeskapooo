@@ -12,14 +12,64 @@
   const declarationMode = () => config.paymentMode === 'self_declared';
   const offlinePayment = () => $('[name=payment]:checked')?.value === 'offline';
   const appointmentInput = () => ({ date: $('#payment-date').value, time: $('#payment-time').value });
-  let pageQueue = Promise.resolve();
+  const guideNotes = nodeGuideNotes();
+  function nodeGuideNotes() {
+    const article = document.createElement('article'); article.className = 'panel';
+    const title = document.createElement('h2'); title.textContent = 'Print options & storage'; article.append(title);
+    document.querySelectorAll('#new-view .microcopy:not(#upload-progress), #new-view .estimate-note, #new-view .summary-footnote').forEach(el => { if (!el.id && !el.closest('#trending-print-list')) article.append(el); });
+    $('#guide-view .guide-grid').append(article);
+    return article;
+  }
+  const pageCountQueue = [];
+  let activePageCounts = 0;
   const node = (tag, text, className) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; };
   function tell(selector, text) { const el = $(selector); el.textContent = text; el.hidden = !text; }
+  let checkoutStep = 1;
+  function setStep(step, focus = true) {
+    if (working || confirmingPayment) return;
+    const previousStep = checkoutStep;
+    checkoutStep = Math.max(1, Math.min(3, Number(step)));
+    document.querySelectorAll('[data-step-panel]').forEach(panel => { panel.hidden = Number(panel.dataset.stepPanel) !== checkoutStep; });
+    document.querySelectorAll('[data-checkout-step]').forEach(button => {
+      const current = Number(button.dataset.checkoutStep) === checkoutStep;
+      if (current) button.setAttribute('aria-current', 'step'); else button.removeAttribute('aria-current');
+    });
+    $('.order-layout').dataset.currentStep = checkoutStep;
+    $(checkoutStep === 2 ? '#settings-files-host' : '#document-files-host').append($('#file-list'));
+    $('#step-back').hidden = checkoutStep === 1;
+    $('#step-next').hidden = checkoutStep === 3;
+    $('#step-next').textContent = checkoutStep === 1 ? 'Print settings →' : 'Review & payment →';
+    $('#step-announcement').textContent = 'Step ' + checkoutStep + ' of 3: ' + ['Documents', 'Print settings', 'Payment'][checkoutStep - 1];
+    if (focus) {
+      document.querySelector('[data-checkout-step="' + checkoutStep + '"]').focus({ preventScroll: true });
+      if (previousStep !== checkoutStep) $('.checkout-steps').scrollIntoView?.({ behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    }
+  }
+  document.querySelectorAll('[data-checkout-step]').forEach(button => button.addEventListener('click', () => setStep(button.dataset.checkoutStep)));
+  $('#step-back').addEventListener('click', () => setStep(checkoutStep - 1));
+  $('#step-next').addEventListener('click', () => setStep(checkoutStep + 1));
+  function updateUnread() {
+    if (!user && !demo) return;
+    const key = 'theeskapooo:read-orders:' + (user?.uid || 'preview');
+    let seen = {};
+    try { seen = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch {}
+    const fingerprints = Object.fromEntries(orders.map(order => [order.id, (statusNames[order.status] || order.status) + ':' + order.paymentStatus]));
+    if (!$('#orders-view').hidden && !document.hidden) {
+      seen = { ...seen, ...fingerprints };
+      try { localStorage.setItem(key, JSON.stringify(Object.fromEntries(Object.entries(seen).slice(-1000)))); } catch {}
+    }
+    const count = Object.entries(fingerprints).filter(([id, value]) => seen[id] !== value).length;
+    $('#order-count').textContent = String(count);
+    $('#order-count').hidden = count === 0;
+    $('#order-count').setAttribute('aria-label', count + ' unread order updates');
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) updateUnread(); });
   function setView(view) {
     for (const name of ['new','orders','guide']) $(`#${name}-view`).hidden = name !== view;
     document.querySelectorAll('[data-view]').forEach(button => { const active = button.dataset.view === view; button.classList.toggle('active', active); if (active) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current'); });
     $('#breadcrumb-current').textContent = { new: 'New print order', orders: 'My orders', guide: 'Printing guide' }[view];
-    if (view === 'orders') refreshOrders();
+    if (view === 'orders') { updateUnread(); refreshOrders(); }
+    if (view === 'new') setStep(checkoutStep, false);
   }
   document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
   function readSettings() {
@@ -29,7 +79,10 @@
     pendingSubmission = null;
     updateSummary();
   }
-  fields.forEach(key => $('#' + key).addEventListener('input', readSettings));
+  fields.forEach(key => {
+    $('#' + key).addEventListener('input', readSettings);
+    if (['colour','sides','size','orientation','layout','binding'].includes(key)) $('#' + key).addEventListener('change', readSettings);
+  });
   function chooseFile(id) {
     selected = id;
     const item = files.find(file => file.id === id);
@@ -38,12 +91,19 @@
     $('#selected-name').textContent = item?.file.name || 'No file selected';
     if (item) {
       fields.forEach(key => { $('#' + key).value = item.settings[key]; });
+      $('#layout-label').firstChild.textContent = item.image ? 'Images per printed side' : 'Pages per printed side';
+      [...$('#layout').options].forEach(option => { const count = Number(option.value); option.textContent = item.image ? `${count} image${count === 1 ? '' : 's'} per side` : `${count} page${count === 1 ? '' : 's'} per side`; });
       $('#pages').readOnly = !item.manualPages;
       $('#pages').closest('label').classList.toggle('manual-pages', Boolean(item.manualPages));
       if (item.counting || item.countError || !item.settings.pages) $('#pages').value = '';
       $('#pages').placeholder = item.counting ? 'Counting...' : item.manualPages ? 'Enter pages to print' : 'Unavailable';
       $('#page-source').textContent = item.counting ? 'Counting pages...' : item.countError || (item.manualPages ? 'Enter pages from Print Preview; the shop checks the count. PDF preserves layout.' : 'Counted automatically.');
-    } else { $('#pages').value = ''; $('#page-source').textContent = 'Select a file.'; }
+    } else {
+      $('#pages').value = '';
+      $('#page-source').textContent = 'Select a file.';
+      $('#layout-label').firstChild.textContent = 'Pages per printed side';
+      [...$('#layout').options].forEach(option => { const count = Number(option.value); option.textContent = `${count} page${count === 1 ? '' : 's'} per side`; });
+    }
     renderFiles();
   }
   function renderFiles() {
@@ -52,9 +112,9 @@
       const row = node('div', undefined, 'file-row' + (item.id === selected ? ' selected' : ''));
       row.append(node('span', item.file.name.split('.').pop().toUpperCase(), 'file-symbol'));
       const pick = node('button', undefined, 'file-pick'); pick.type = 'button'; pick.disabled = working;
-      const pageLabel = item.counting ? 'Counting pages...' : item.countError ? 'Cannot read file' : item.manualPages ? (item.settings.pages ? item.settings.pages + ' pages · entered by you' : 'Enter page count below') : item.settings.pages + ' pages · counted automatically';
+      const pageLabel = item.counting ? 'Counting pages...' : item.countError ? 'Cannot read file' : item.manualPages ? (item.settings.pages ? item.settings.pages + ' pages · entered by you' : 'Set pages in step 2') : item.settings.pages + ' pages · counted automatically';
       pick.append(node('strong', item.file.name), node('small', `${(item.file.size / 1024).toFixed(1)} KB · ${pageLabel} · ${item.settings.copies} cop${item.settings.copies === 1 ? 'y' : 'ies'}`));
-      pick.addEventListener('click', () => chooseFile(item.id));
+      pick.addEventListener('click', () => { chooseFile(item.id); setStep(2); });
       const remove = node('button', '×', 'remove-file'); remove.type = 'button'; remove.disabled = working; remove.setAttribute('aria-label', `Remove ${item.file.name}`);
       remove.addEventListener('click', () => { files = files.filter(file => file.id !== item.id); pendingSubmission = null; chooseFile(files.some(file => file.id === selected) ? selected : files[0]?.id); updateSummary(); });
       row.append(pick, remove); list.append(row);
@@ -69,26 +129,36 @@
       if (files.length + selectedTrendingPrintIds.size >= 10) { errors.push('Only 10 print items are allowed per order.'); break; }
       if (files.reduce((sum, item) => sum + item.file.size, 0) + file.size > 100 * 1024 * 1024) { errors.push(`${file.name}: the order would exceed 100 MB.`); continue; }
       if (files.some(item => item.file.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified)) { errors.push(`${file.name} is already selected.`); continue; }
-      const image = /\.(jpg|jpeg|png|webp|heic|tif|tiff)$/i.test(file.name);
+      const image = core.isImageFile(file.name);
       const item = { id: crypto.randomUUID(), file, image, counting: true, settings: { ...core.defaults, pages: 0 } };
       files.push(item);
-      pageQueue = pageQueue.then(async () => {
-        if (!files.includes(item)) return;
-        try {
-          const count = await window.DocumentPages.count(file);
-          item.manualPages = count === null;
-          item.settings.pages = count === null ? 0 : count;
-          item.countError = '';
-        } catch (error) { item.countError = error.message || 'Could not count pages. Export to PDF and try again.'; }
-        finally {
-          item.counting = false;
-          if (files.includes(item)) { if (selected === item.id) chooseFile(item.id); updateSummary(); }
-        }
-      });
+      pageCountQueue.push(item);
     }
     pendingSubmission = null;
     chooseFile(selected || files[0]?.id);
+    runPageCounts();
     tell('#file-feedback', errors.join(' ')); updateSummary();
+  }
+  function runPageCounts() {
+    while (activePageCounts < 2 && pageCountQueue.length) {
+      const item = pageCountQueue.shift();
+      if (!files.includes(item)) continue;
+      activePageCounts++;
+      void (async () => {
+        try {
+          const count = await window.DocumentPages.count(item.file);
+          item.manualPages = count === null;
+          item.settings.pages = count === null ? 0 : count;
+          item.countError = '';
+        } catch (error) { item.countError = error.message || 'Could not count file. Export to PDF and try again.'; }
+        finally {
+          activePageCounts--;
+          item.counting = false;
+          if (files.includes(item)) { if (selected === item.id) chooseFile(item.id); updateSummary(); }
+          runPageCounts();
+        }
+      })();
+    }
   }
   $('#file-input').addEventListener('change', event => { addFiles(event.target.files); event.target.value = ''; });
   const zone = $('#drop-zone');
@@ -102,7 +172,7 @@
     pendingSubmission = null; renderFiles(); updateSummary();
   });
   function totals() {
-    const total = files.reduce((total, item) => { const result = core.estimate(item.settings); ['amount','sheets','printedSides','minutes'].forEach(key => total[key] += result[key]); total.needsQuote ||= result.needsQuote; return total; }, { amount: 0, sheets: 0, printedSides: 0, minutes: 0, needsQuote: false });
+    const total = files.reduce((total, item) => { const result = core.estimate(item.settings, { image: item.image }); ['amount','sheets','printedSides','minutes'].forEach(key => total[key] += result[key]); total.needsQuote ||= result.needsQuote; return total; }, { amount: 0, sheets: 0, printedSides: 0, minutes: 0, needsQuote: false });
     for (const id of selectedTrendingPrintIds) {
       const print = trendingPrints.find(item => item.id === id);
       if (!print) throw Error('A selected quick print is no longer available. Refresh the list and choose it again.');
@@ -152,7 +222,7 @@
     const list = $('#summary-files'); list.replaceChildren(); let error = '';
     files.forEach(item => {
       const row = node('p'); row.append(node('span', item.file.name));
-      try { if (item.counting || item.countError) throw Error(item.countError || 'Counting pages...'); const result = core.estimate(item.settings); row.append(node('span', result.needsQuote && !result.amount ? 'Quote required' : money(result.amount) + (result.needsQuote ? ' + quote' : ''))); }
+      try { if (item.counting || item.countError) throw Error(item.countError || 'Counting pages...'); const result = core.estimate(item.settings, { image: item.image }); row.append(node('span', result.needsQuote && !result.amount ? 'Quote required' : money(result.amount) + (result.needsQuote ? ' + quote' : ''))); }
       catch (e) { error = `${item.file.name}: ${e.message}`; row.append(node('span', 'Check settings')); }
       list.append(row);
     });
@@ -190,6 +260,7 @@
     $('#place-order').textContent = working ? 'Preparing checkout…' : demo ? 'Create preview order →' : offlinePayment() ? 'Place offline order →' : declarationMode() ? 'Continue to payment →' : 'Place order →';
     tell('#checkout-status', reason);
     $('#retry-connection').hidden = demo || Boolean(user && config.ordersEnabled && shopAccepting !== null && (!declarationMode() || config.paymentsEnabled));
+    $('#step-total').textContent = (files.length || selectedTrendingPrintIds.size) ? $('#total-price').textContent : '';
     renderFiles();
   }
   $('#review-confirm').addEventListener('change', updateSummary);
@@ -262,7 +333,7 @@
           $('#manual-payment-form').reset();
           configureDeclarationForm();
           showPaymentInfo(info);
-          $('#payment-message').textContent = 'Pay the total below, then tick the confirmation and select Done to place your order. Closing this window does not place an order. If you already transferred money, do not pay again.';
+          $('#payment-message').textContent = 'Pay the total below, then tick the confirmation and select Done to place your order. Closing this window does not place an order. If you already transferred money, do not pay again.' + (Number.isFinite(info.expiresMs) ? ' Complete by ' + new Date(info.expiresMs).toLocaleString('en-IN', {timeZone:'Asia/Kolkata'}) + ' IST.' : '');
           $('#pay-at-collection').hidden = true;
           $('.payment-options').hidden = true;
           tell('#manual-feedback', '');
@@ -274,7 +345,7 @@
       }
       files = []; selected = null; selectedTrendingPrintIds.clear(); pendingSubmission = null; $('#urgent-order').checked = false; $('#review-confirm').checked = false; $('#notes').value = ''; $('#upload-progress').textContent = ''; chooseFile(null); renderTrendingPrints(); setView('orders');
       if (placedOrder) openPayment(placedOrder);
-    } catch (error) { const message = error.message || 'Order submission failed. Retry to check or complete the same order.'; tell('#global-message', message); tell('#checkout-error', message); $('#upload-progress').textContent = ''; }
+    } catch (error) { const message = error.message || 'Order submission failed. Retry to check or complete the same order.'; tell('#checkout-error', message); $('#upload-progress').textContent = ''; }
     finally { lock(false); }
   });
   function finishDeclaredOrder(order) {
@@ -285,6 +356,7 @@
     $('#urgent-order').checked = false; $('#review-confirm').checked = false;
     $('#notes').value = ''; $('#upload-progress').textContent = '';
     chooseFile(null); renderTrendingPrints(); updateSummary();
+    checkoutStep = 1; // Reset the next order after the current save releases its controls.
     tell('#orders-message', order.offlineNumber ? 'Offline order placed. Show your identification number at the shop, pay during your visit, and stay while your documents are printed.' : 'Order placed. Payment recorded from your confirmation; no recipient approval is needed.');
     setView('orders'); renderOrders();
   }
@@ -317,7 +389,7 @@
   }
   const statusNames = { submitted: 'Order placed', accepted: 'Order placed', printing: 'Order placed', ready: 'Ready to collect', collected: 'Collected', cancelled: 'Cancelled' };
   function renderOrders() {
-    const list = $('#orders-list'); list.replaceChildren(); $('#order-count').textContent = orders.length;
+    const list = $('#orders-list'); list.replaceChildren(); updateUnread();
     const visible = orders.filter(order => (filter === 'all' && !['collected','cancelled'].includes(order.status)) || (filter === 'active' && ['submitted','accepted','printing'].includes(order.status)) || (filter === 'ready' && order.status === 'ready') || (filter === 'completed' && ['collected','cancelled'].includes(order.status)));
     if (!visible.length) { const empty = node('div', undefined, 'panel empty-orders'); empty.append(node('span', '▤'), node('h2', 'No orders here yet.'), node('p', 'Your print orders will appear here once you place them.')); list.append(empty); return; }
     visible.forEach(order => {
@@ -333,7 +405,7 @@
         badge.append(node('strong','Offline ID ' + String(order.offlineNumber).padStart(3,'0')),node('small','Show this ID at the shop; it is not your queue position.'));
         if (order.paymentAppointment) badge.append(node('span', appointmentLabel(order.paymentAppointment)));
         card.append(badge);
-        if (!['collected','cancelled'].includes(order.status)) card.append(node('p',order.paymentStatus === 'unpaid' ? 'Waiting for your visit and payment. The shop prints only while you are present.' : 'Payment received at the shop. Your position follows payment time; stay for printing.','notice'));
+        if (!['collected','cancelled'].includes(order.status)) card.append(node('p',order.paymentStatus === 'unpaid' ? 'Waiting for your visit and payment. The shop prints only while you are present.' : 'Payment received at the shop. Stay at the shop for printing.','notice'));
       }
       const docs = node('div', undefined, 'order-documents'); (order.files || []).forEach(file => { const s = file.settings; docs.append(node('p', `${file.name} · ${s.copies} cop${s.copies === 1 ? 'y' : 'ies'} · ${s.colour === 'bw' ? 'B&W' : 'Colour'} · ${s.size} · ${s.sides === 'double' ? 'Double-sided' : 'Single-sided'} · Pages ${s.range || 'all'}`)); }); (order.trendingPrints || []).forEach(item => docs.append(node('p', `${item.title} · Quick print · ${money(item.pricePaise / 100)}`))); card.append(docs);
 
@@ -347,16 +419,24 @@
     });
   }
   let refreshingOrders = false;
-  async function refreshOrders() {
+  async function refreshOrders(manual = false) {
     if (refreshingOrders) return;
     refreshingOrders = true;
-    if (!demo && user && config.ordersEnabled) {
-      try { const latest = (await window.OrderService.list()).orders; if (!Array.isArray(latest)) throw Error('Orders could not be loaded. Please retry.'); orders = latest; window.OrderAlerts?.observe(user.uid, orders); }
-      catch (error) { tell('#orders-message', error.message); }
-    }
-    renderOrders(); refreshingOrders = false;
+    const button = $('#refresh-orders'); button.disabled = true; button.textContent = 'Refreshing…'; button.setAttribute('aria-busy', 'true');
+    try {
+      if (!demo && user) {
+        if (!config.ordersEnabled || config.backendUnavailable) { config = await window.OrderService.configuration(); configurePaymentMode(); updateSummary(); }
+        if (!config.ordersEnabled) throw Error('Orders are unavailable. Check the connection and try again.');
+        const latest = (await window.OrderService.list()).orders;
+        if (!Array.isArray(latest)) throw Error('Orders could not be loaded. Please retry.');
+        orders = latest; window.OrderAlerts?.observe(user.uid, orders);
+      }
+      renderOrders();
+      if (manual) tell('#orders-message', 'Orders updated just now.');
+    } catch (error) { tell('#orders-message', error.message); }
+    finally { refreshingOrders = false; button.disabled = false; button.textContent = 'Refresh orders'; button.removeAttribute('aria-busy'); }
   }
-  $('#refresh-orders').addEventListener('click', refreshOrders);
+  $('#refresh-orders').addEventListener('click', () => refreshOrders(true));
   document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => { filter = button.dataset.filter; document.querySelectorAll('[data-filter]').forEach(item => item.setAttribute('aria-pressed', String(item === button))); renderOrders(); }));
   function openPayment(order) {
     checkoutDraft = null;
@@ -494,12 +574,13 @@
     $('#pickup').closest('label').hidden = offline;
     $('#pickup-time-label').hidden = offline || $('#pickup').value !== 'later';
     $('#payment-date').min = new Date(Date.now()+19800000).toISOString().slice(0,10);
-    $('#payment-guide').textContent = 'Online: pay before ordering. Offline: choose a payment time, then show your ID and stay while printing. Queue follows payment time.';
-    $('#checkout-note').hidden = false;
+    $('#payment-guide').textContent = 'Online: pay before ordering. Offline: choose a payment time, then show your ID and stay while printing. Paid priority orders go first; other paid orders follow payment time.';
+    $('#checkout-note').hidden = true;
     $('#checkout-note').textContent = offline ? 'Place now to get your offline ID. Your payment appointment does not reserve a queue position.' : 'Next: pay by UPI, tick the confirmation and select Done to place your order.';
   }
   function showServiceState() {
     configurePaymentMode();
+    $('#mode-banner').hidden = Boolean(config.ordersEnabled && !config.backendUnavailable && !config.serviceUnavailable && config.paymentMode !== 'test');
     $('#mode-banner').textContent = config.backendUnavailable || config.serviceUnavailable ? 'The shop connection is temporarily unavailable. Keep this page open: your selected files and settings stay here. We’ll reconnect automatically. Check saved orders before repeating a payment.' : config.paymentMode === 'test' ? 'PAYMENT TEST ENVIRONMENT — no real money is transferred.' : config.ordersEnabled ? 'Campus Xerox centre · Normal days 9:00 AM–5:30 PM · Exam days 8:30 AM–5:30 PM IST.' : 'Orders are not activated yet. You can prepare your print settings.';
   }
   let reconnecting = false;

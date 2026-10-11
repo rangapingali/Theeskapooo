@@ -49,3 +49,26 @@ test('handover removes documents immediately and retains the order record', asyn
   assert.equal(records.orders.order1.paymentStatus, 'declared_paid');
   assert.equal(records.orders.order1.status, 'collected');
 });
+
+test('24-hour boundary, active orders, missing records and independent cleanup failures are handled safely', async () => {
+  const now = 50 * 3600000;
+  const records={uploadSessions:{},orders:{}};
+  const add=(id,state,age,status)=>{records.uploadSessions[id]={state,createdMs:now-age,collection:state==='ordered'?'orders':undefined,files:{one:{path:id}}}; if(status)records.orders[id]={status,closedMs:now-age};};
+  add('cancel-boundary','ordered',24*3600000,'cancelled');
+  add('cancel-young','ordered',24*3600000-1,'cancelled');
+  add('open-boundary','open',24*3600000);
+  add('open-young','open',24*3600000-1);
+  add('paid-uncollected','ordered',49*3600000,'ready');
+  add('printing','ordered',49*3600000,'printing');
+  add('missing-order','ordered',49*3600000);
+  const db={collection:name=>({doc:id=>({name,id}),get:async()=>({docs:Object.keys(records[name]).map(id=>({id}))})}),runTransaction:async fn=>fn({get:async ref=>({data:()=>records[ref.name][ref.id]}),update:(ref,data)=>Object.assign(records[ref.name][ref.id],data)})};
+  const removed=[];
+  await assert.rejects(cleanupDocuments({db,now,bucket:{remove:async paths=>{if(paths[0]==='cancel-boundary')throw Error('temporary');removed.push(...paths);}}}),/pending removals/);
+  assert.deepEqual(removed,['open-boundary']);
+  assert.equal(records.uploadSessions['cancel-boundary'].state,'deleting');
+  for(const id of ['paid-uncollected','printing','missing-order','cancel-young'])assert.equal(records.uploadSessions[id].state,'ordered');
+  assert.equal(records.uploadSessions['open-young'].state,'open');
+  await cleanupDocuments({db,now,bucket:{remove:async paths=>removed.push(...paths)}});
+  assert.equal(records.uploadSessions['cancel-boundary'].state,'deleted');
+  assert.equal(records.orders['paid-uncollected'].documentsDeleted,undefined);
+});

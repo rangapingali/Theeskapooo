@@ -107,7 +107,7 @@ The current payment checkbox is **student-declared payment**, not confirmation f
 - Supabase Free includes 1 GB of file storage and limited egress. At 5 MB per document, 200 documents use roughly 1 GB before overhead; downloads also consume bandwidth. Low-activity free projects can pause after a 7-day period. Watch the dashboard and pausing emails.
 - Keep Firebase on Spark to stay within its no-cost quotas. Do not enable Blaze just for this setup. Firebase and Supabase quota exhaustion can interrupt the app independently of Render.
 - Data lives in Firebase and Supabase, not Render's temporary disk. A Render restart does not itself delete saved orders or documents.
-- Cleanup runs when the server starts and hourly while it is awake. Files become eligible 24 hours after collection/cancellation; abandoned uploads after 48 hours. If Render sleeps, deletion waits until the service wakes. This setup cannot promise deletion at exactly the 24-hour mark. Orders that never reach collected/cancelled remain stored.
+- Cleanup runs on startup and every 15 minutes while the server is awake. Collected files are removed immediately after handover; cancelled files and abandoned uploads expire after 24 hours. If Render sleeps, deletion waits until the service wakes. This setup cannot promise deletion at exactly the 24-hour mark. Orders that never reach collected/cancelled remain stored.
 - Start with a small pilot and observe usage/response times. This free setup has not been load-tested for 2,000 concurrent students.
 
 ## Deployment checks performed

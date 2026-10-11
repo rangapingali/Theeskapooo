@@ -54,7 +54,7 @@ app.post('/api/orders', async (req, res) => {
     const sessionRef = db.collection('uploadSessions').doc(input.id);
     if (input.files.length) {
       const session = (await tx.get(sessionRef)).data();
-      if (!session || session.uid !== req.student.uid || session.state !== 'open' || Date.now() - session.createdMs >= 48 * 3600000) throw failure(409, 'Upload session expired. Please start a new order.');
+      if (!session || session.uid !== req.student.uid || session.state !== 'open' || Date.now() - session.createdMs >= 24 * 3600000) throw failure(409, 'Upload session expired. Please start a new order.');
       for (const file of input.files) {
         const inspected = Object.values(session.files || {}).find(f => f.path === file.path && f.size === file.size);
         if (!inspected || (!Number.isInteger(inspected.pages) && inspected.pageCountSource !== 'manual')) throw failure(400, 'Document has not been checked. Upload the file again.');

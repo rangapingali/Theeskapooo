@@ -12,7 +12,7 @@ window.OrderService = (() => {
     const token = await user.getIdToken();
     let response;
     try { response = await fetch('/api' + path, {
-      ...options, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      cache: 'no-store', ...options, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(30000)
     }); } catch { throw Error('Connection interrupted. Your saved orders are safe. Reconnect and refresh before repeating an order or payment.'); }
     return readResponse(response, 'The order service is unavailable. Please try again later.');
@@ -77,17 +77,48 @@ window.OrderService = (() => {
       widget.open();
     });
   }
-  async function download(orderId, index, name) {
+  async function documentBlob(orderId, index) {
     const user = await window.KitswAuth.current();
-    const response = await fetch(`/api/operator/orders/${encodeURIComponent(orderId)}/files/${index}`, { headers: { Authorization: `Bearer ${await user.getIdToken()}` } });
-    if (!response.ok) throw Error('Document download failed. Check your operator access.');
-    const url = URL.createObjectURL(await response.blob());
+    if (!user?.emailVerified) throw Error('Sign in with your operator account first.');
+    const response = await fetch('/api/operator/orders/' + encodeURIComponent(orderId) + '/files/' + index, {
+      headers: { Authorization: 'Bearer ' + await user.getIdToken() }, cache: 'no-store', signal: AbortSignal.timeout(120000)
+    });
+    if (!response.ok) throw Error('Document could not be opened. It may have been deleted after collection; refresh the order.');
+    return response.blob();
+  }
+  async function download(orderId, index, name) {
+    const url = URL.createObjectURL(await documentBlob(orderId, index));
     const link = document.createElement('a'); link.href = url; link.download = name; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
+  async function openForPrint(orderId, index, name) {
+    const ext = name.split('.').pop().toLowerCase();
+    const types = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
+    if (!types[ext]) throw Error('Download this format and print it using its usual application.');
+    const tab = window.open('', '_blank');
+    if (!tab) throw Error('Allow pop-ups to open the print preview, or use Download document.');
+    tab.opener = null;
+    tab.document.title = 'Preparing print preview'; tab.document.body.textContent = 'Loading your document…';
+    try {
+      const blob = await documentBlob(orderId, index);
+      if (tab.closed) return;
+      const url = URL.createObjectURL(new Blob([blob], { type: types[ext] }));
+      if (ext === 'pdf') tab.location.replace(url);
+      else {
+        tab.document.title = name; tab.document.body.replaceChildren();
+        const style = tab.document.createElement('style'); style.textContent = 'body{font:18px system-ui;margin:20px}img{max-width:100%;height:auto;display:block}button{font:inherit;padding:12px;margin-bottom:16px}@media print{button,p{display:none}body{margin:0}}';
+        const info = tab.document.createElement('p'); info.textContent = 'Match copies, paper size, colour and layout to the order before printing.';
+        const button = tab.document.createElement('button'); button.textContent = 'Print document'; button.addEventListener('click', () => tab.print());
+        const img = tab.document.createElement('img'); img.alt = name; img.src = url;
+        tab.document.head.append(style); tab.document.body.append(button, info, img);
+      }
+      const timer = setInterval(() => { if (tab.closed) { URL.revokeObjectURL(url); clearInterval(timer); } }, 5000);
+      window.addEventListener('pagehide', () => { URL.revokeObjectURL(url); clearInterval(timer); }, { once: true });
+    } catch (error) { tab.close(); throw error; }
+  }
   const post = (path, body) => request(path, { method: 'POST', body: JSON.stringify(body) });
   return {
-    configuration, upload, pay, download,
+    configuration, upload, pay, download, openForPrint,
     preparePayment: body => post('/payment-drafts', body),
     declarePayment: id => post(`/orders/${encodeURIComponent(id)}/declare-payment`, { paymentDeclared: true }),
     shop: () => request('/shop'),

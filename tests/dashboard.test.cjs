@@ -269,7 +269,7 @@ test('failed live upload keeps files and shows failure instead of claiming order
   const ui = await dashboard(false, { configuration: async () => ({ ordersEnabled: true }), upload: async () => { throw Error('Upload denied'); }, create: async () => { created = true; } });
   try {
     await ui.add(['report.pdf']); ui.review(); ui.$('#place-order').click(); await tick();
-    assert.equal(created, false); assert.equal(ui.$('#total-files').textContent, '1'); assert.match(ui.$('#global-message').textContent, /Upload denied/);
+    assert.equal(created, false); assert.equal(ui.$('#total-files').textContent, '1'); assert.equal(ui.$('#global-message').hidden, true);
     assert.match(ui.$('#checkout-error').textContent,/Upload denied/);
     assert.equal(ui.$('#place-order').disabled, false);
   } finally { ui.dom.window.close(); }
@@ -283,4 +283,48 @@ test('offline orders retain online option, but require a fixed total and active 
     ui.$('#close-payment').click(); order.quoteAmountPaise = 500;
     ui.$('#refresh-orders').click(); await tick(); ui.$('#orders-list .secondary-action').click(); assert.equal(ui.$('#start-payment').hidden, false);
   } finally { ui.dom.window.close(); }
+});
+
+test('checkout steps preserve selected files, per-file settings, notes and payment choice', async () => {
+  const ui=await dashboard();
+  try {
+    assert.equal(ui.$('[data-step-panel="1"]').hidden,false);
+    assert.equal(ui.$('#settings-panel').hidden,true);
+    await ui.add(['notes.pdf','second.pdf']);
+    ui.$('[data-checkout-step="2"]').click();
+    assert.equal(ui.$('#settings-panel').hidden,false);
+    assert.equal(ui.$('#file-list').parentElement.id,'settings-files-host');
+    ui.input('copies',3); ui.input('colour','colour'); ui.input('notes','Keep documents separate');
+    ui.$('[name=payment][value=offline]').click();
+    ui.$('[data-checkout-step="3"]').click();
+    assert.equal(ui.$('.order-summary').hidden,false);
+    ui.$('[data-checkout-step="1"]').click();
+    assert.equal(ui.$('#file-list').parentElement.id,'document-files-host');
+    assert.equal(ui.$('#total-files').textContent,'2');
+    ui.$('#step-next').click();
+    assert.equal(ui.$('#copies').value,'3'); assert.equal(ui.$('#colour').value,'colour');
+    assert.equal(ui.$('#notes').value,'Keep documents separate');
+    assert.equal(ui.$('[name=payment]:checked').value,'offline');
+    ui.$('#file-list .file-row:nth-child(2) .file-pick').click();
+    assert.equal(ui.$('#copies').value,'1');
+    assert.equal(ui.$('#colour').value,'bw');
+  } finally {ui.dom.window.close();}
+});
+test('order badge tracks unseen updates and clears when My orders is viewed', async () => {
+  let latest=[{id:'badge-order',status:'accepted',paymentStatus:'paid',quoteAmountPaise:500,createdAt:new Date().toISOString(),files:[]}];
+  const ui=await dashboard(false,{configuration:async()=>({ordersEnabled:true,paymentsEnabled:true}),list:async()=>({orders:latest})});
+  try {
+    Object.defineProperty(ui.w.document,'hidden',{configurable:true,value:false});
+    assert.equal(ui.$('#order-count').textContent,'1');
+    ui.$('[data-view=orders]').click(); await tick();
+    assert.equal(ui.$('#order-count').hidden,true);
+    ui.$('[data-view=new]').click();
+    latest=[{...latest[0],status:'ready'}];
+    ui.$('#refresh-orders').click(); await tick();
+    assert.equal(ui.$('#order-count').textContent,'1'); assert.equal(ui.$('#order-count').hidden,false);
+    ui.$('[data-view=orders]').click(); await tick();
+    assert.equal(ui.$('#order-count').hidden,true);
+    ui.$('#refresh-orders').click(); await tick();
+    assert.match(ui.$('#orders-message').textContent,/updated just now/);
+  } finally {ui.dom.window.close();}
 });

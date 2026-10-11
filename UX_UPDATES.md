@@ -6,7 +6,7 @@
 
 The stored status is `declared_paid`, displayed as **Declared paid — student confirmation**. This is a temporary trust-based payment flow, not bank verification. There is no recipient approval, UTR entry or cash choice for new orders in this mode. The shop can print and hand over declared-paid orders. Old unpaid/pending orders can be confirmed by their owner without paying twice. Payment declarations and ready-to-collect transitions can play the supplied audio after sound alerts are enabled.
 
-If saving fails after a transfer, keep checkout open and retry Done; do not transfer again. Drafts expire after 24 hours, and abandoned documents are removed after 48 hours. Contact the shop if a paid checkout has expired or the shop pauses while payment is in progress. A merchant gateway and verified callbacks must replace this declaration flow before relying on automatic bank confirmation. Legacy manual/gateway modes remain separate; switching modes requires testing their own workflows.
+If saving fails after a transfer, keep checkout open and retry Done; do not transfer again. Drafts and abandoned documents expire 24 hours after upload-session creation (24 hours after checkout creation for quick-print-only orders). Contact the shop if a paid checkout has expired or the shop pauses while payment is in progress. A merchant gateway and verified callbacks must replace this declaration flow before relying on automatic bank confirmation. Legacy manual/gateway modes remain separate; switching modes requires testing their own workflows.
 
 The preview pages still demonstrate the older example payment flow and never transfer money. Use a configured local server for the current payment-first workflow.
 

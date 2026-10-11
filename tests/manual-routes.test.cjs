@@ -17,8 +17,9 @@ function database() {
 test('manual API enforces ownership, operator approval, pending status, idempotency and reference uniqueness', async () => {
   const db = database(); const app = express(); app.use(express.json());
   const removedDocuments = [];
+  let releaseRemoval;
   app.use((req, res, next) => { const uid = req.get('x-test-user') || 'student1'; req.student = { uid, email: uid + '@kitsw.ac.in', email_verified: true }; next(); });
-  register(app, { db, bucket: { remove: async paths => removedDocuments.push(...paths) }, FieldValue: { serverTimestamp: () => 'timestamp' }, publicOrder: s => ({ id: s.id, ...s.data() }), paymentConfig: { mode: 'manual', enabled: true, ordersCollection: 'orders' }, env: { PRINT_OPERATOR_EMAILS: 'operator@kitsw.ac.in', MERCHANT_UPI_REFERENCE: 'example@fam', MERCHANT_UPI_ACCOUNT_NAME: 'Example' } });
+  register(app, { db, bucket: { remove: async paths => { await new Promise(resolve => { releaseRemoval = resolve; }); removedDocuments.push(...paths); } }, FieldValue: { serverTimestamp: () => 'timestamp' }, publicOrder: s => ({ id: s.id, ...s.data() }), paymentConfig: { mode: 'manual', enabled: true, ordersCollection: 'orders' }, env: { PRINT_OPERATOR_EMAILS: 'operator@kitsw.ac.in', MERCHANT_UPI_REFERENCE: 'example@fam', MERCHANT_UPI_ACCOUNT_NAME: 'Example' } });
   app.use((error, req, res, next) => res.status(error.httpStatus || 500).json({ error: error.message }));
   const server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
   const base = 'http://127.0.0.1:' + server.address().port;
@@ -65,7 +66,10 @@ test('manual API enforces ownership, operator approval, pending status, idempote
     db.data.set('uploadSessions/' + collectedId, { state: 'ordered', collection: 'orders', files: { one: { path: 'private/handed-over.pdf' } } });
     const handedOver = await post(`operator/orders/${collectedId}/status`, { status: 'collected' }, 'operator');
     assert.equal(handedOver.status, 200);
-    assert.equal(handedOver.data.order.documentsDeleted, true);
+    assert.equal(handedOver.data.order.status, 'collected');
+    assert.notEqual(handedOver.data.order.documentsDeleted, true);
+    assert.equal(db.data.get('uploadSessions/' + collectedId).state, 'deleting');
+    releaseRemoval(); await new Promise(resolve => setImmediate(resolve));
     assert.equal(db.data.get('orders/' + collectedId).status, 'collected');
     assert.equal(db.data.get('uploadSessions/' + collectedId).state, 'deleted');
     assert.deepEqual(removedDocuments, ['private/handed-over.pdf']);

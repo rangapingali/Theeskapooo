@@ -27,3 +27,17 @@ test('uploads enforce session ownership, body size, expiry and closed-order prot
     assert.equal(writes, 2);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
+
+test('an upload completing after session cleanup does not leave an orphan file',async()=>{
+ const records=new Map();let removed=[];
+ const db={collection:name=>({doc:id=>({path:name+'/'+id,get:async()=>({data:()=>structuredClone(records.get(name+'/'+id))})})}),runTransaction:async fn=>fn({get:async ref=>ref.get(),set:(ref,value)=>records.set(ref.path,structuredClone(value))})};
+ const app=express();app.use((req,res,next)=>{req.student={uid:'student'};next();});
+ const order=randomUUID(),file=randomUUID();
+ register(app,{db,inspectDocument:async()=>1,bucket:{upload:async()=>{records.get('uploadSessions/'+order).state='deleted';},remove:async paths=>removed.push(...paths)}});
+ app.use((error,req,res,next)=>res.status(error.httpStatus||500).json({error:error.message}));
+ const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
+ try{
+  const response=await fetch('http://127.0.0.1:'+server.address().port+'/api/uploads/'+order+'/'+file+'?name=notes.pdf',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-File-Size':'3'},body:Buffer.from('pdf')});
+  assert.equal(response.status,409);assert.equal(removed.length,1);assert.match(removed[0],/student-uploads/);
+ }finally{await new Promise(resolve=>server.close(resolve));}
+});

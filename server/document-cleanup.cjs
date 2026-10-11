@@ -1,7 +1,9 @@
-// Records remain; only document objects are removed. Runs on server startup and hourly.
+// Records remain; only document objects are removed. Runs on server startup and every 15 minutes while the server runs.
 async function cleanupDocuments({ db, bucket, now = Date.now() }) {
   const sessions = await db.collection('uploadSessions').get();
+  let failures = 0;
   for (const row of sessions.docs) {
+    try {
     const ref = db.collection('uploadSessions').doc(row.id);
     let paths;
     await db.runTransaction(async tx => {
@@ -9,7 +11,7 @@ async function cleanupDocuments({ db, bucket, now = Date.now() }) {
       const session = (await tx.get(ref)).data();
       if (!session || session.state === 'deleted') return;
       let eligible = session.state === 'deleting';
-      if (session.state === 'open') eligible = now - session.createdMs >= 48 * 3600000;
+      if (session.state === 'open') eligible = now - session.createdMs >= 24 * 3600000;
       if (session.state === 'ordered') {
         const order = (await tx.get(db.collection(session.collection).doc(row.id))).data();
         eligible = order?.status === 'collected' || (order?.status === 'cancelled' && Number.isFinite(order.closedMs) && now - order.closedMs >= 24 * 3600000);
@@ -26,7 +28,9 @@ async function cleanupDocuments({ db, bucket, now = Date.now() }) {
       tx.update(ref, { state: 'deleted', deletedMs: now });
       if (session.collection) tx.update(db.collection(session.collection).doc(row.id), { documentsDeleted: true });
     });
+    } catch { failures++; }
   }
+  if (failures) throw new Error('Document cleanup has pending removals; retry required.');
 }
 async function deleteOrderDocuments({ db, bucket, collection, orderId, now = Date.now() }) {
   const sessionRef = db.collection('uploadSessions').doc(orderId);
@@ -66,6 +70,6 @@ function startCleanup(deps) {
     if (busy) return; busy = true;
     try { await cleanupDocuments(deps); } catch { console.error('Document cleanup failed; will retry.'); } finally { busy = false; }
   };
-  void run(); const timer = setInterval(run, 3600000); timer.unref(); return timer;
+  void run(); const timer = setInterval(run, 15 * 60000); timer.unref(); return timer;
 }
 module.exports = { cleanupDocuments, deleteOrderDocuments, startCleanup };

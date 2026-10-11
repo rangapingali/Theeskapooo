@@ -74,7 +74,7 @@ app.post('/api/payment-webhook', express.raw({ type: 'application/json', limit: 
 });
 app.use(express.json({ limit: '64kb' }));
 app.get('/healthz', (req, res) => res.status(storageReady ? 200 : 503).json({ status: storageReady ? 'ready' : 'reconnecting' }));
-app.get('/api/config', (req, res) => res.json({ ordersEnabled: ordersEnabled && storageReady, paymentsEnabled: paymentsEnabled && storageReady, serviceUnavailable: ordersEnabled && !storageReady, notificationSound: require('node:fs').existsSync(path.join(root, 'notification-voice.mp3')) ? '/notification-voice.mp3' : null, paymentMode, merchantName, hours: { normal: '09:00-17:30', exam: '08:30-17:30', timezone: 'Asia/Kolkata' } }));
+app.get('/api/config', (req, res) => res.json({ ordersEnabled: ordersEnabled && storageReady, paymentsEnabled: paymentsEnabled && storageReady, serviceUnavailable: ordersEnabled && !storageReady, notificationSound: require('node:fs').existsSync(path.join(root, 'notification-voice.mp3')) ? '/notification-voice.mp3?v=voice-20261011' : null, paymentMode, merchantName, hours: { normal: '09:00-17:30', exam: '08:30-17:30', timezone: 'Asia/Kolkata' } }));
 const counters = new Map();
 setInterval(() => { const now = Date.now(); for (const [key, value] of counters) if (value.until < now) counters.delete(key); }, 60000).unref();
 app.use('/api', async (req, res, next) => {

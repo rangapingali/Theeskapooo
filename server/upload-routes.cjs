@@ -17,7 +17,7 @@ module.exports = function registerUploads(app, { db, bucket, inspectDocument = r
     await db.runTransaction(async tx => {
       require('./shop-settings.cjs').requireOpen((await tx.get(db.collection('settings').doc('shop'))).data());
       const s = (await tx.get(session)).data();
-      if (s && (s.uid !== req.student.uid || s.state !== 'open' || Date.now() - s.createdMs >= 48 * 3600000)) throw fail(409, 'This upload session is closed. Start a new order.');
+      if (s && (s.uid !== req.student.uid || s.state !== 'open' || Date.now() - s.createdMs >= 24 * 3600000)) throw fail(409, 'This upload session is closed. Start a new order.');
       const files = s?.files || {};
       if (files[req.params.fileId] && ['name', 'size', 'path'].some(k => files[req.params.fileId][k] !== file[k])) throw fail(409, 'Document changed. Start a new order.');
       files[req.params.fileId] = file;
@@ -31,11 +31,21 @@ module.exports = function registerUploads(app, { db, bucket, inspectDocument = r
     });
     const pages = await inspectDocument(req.body, file.name);
     await bucket.upload(file.path, req.body);
+    try {
     await db.runTransaction(async tx => {
       const latest = (await tx.get(session)).data();
       if (latest?.state !== 'open' || latest.uid !== req.student.uid) throw fail(409, 'Upload session closed. Refresh your order.');
       tx.set(session, { ...latest, files: { ...latest.files, [req.params.fileId]: { ...file, pages, pageCountSource: pages === null ? 'manual' : 'automatic' } } });
     });
+    } catch (error) {
+      // Cleanup may finish while the storage upload is in flight. Do not orphan that object.
+      const latest = (await session.get()).data();
+      if (['deleting', 'deleted'].includes(latest?.state)) {
+        try { await bucket.remove([file.path]); }
+        catch { await db.runTransaction(async tx => { const current = (await tx.get(session)).data(); if (current && ['deleted', 'deleting'].includes(current.state)) tx.set(session, { ...current, state: 'deleting' }); }); }
+      }
+      throw error;
+    }
     const current = (await session.get()).data();
     if (current.state !== 'open') { if (current.state === 'deleting' || current.state === 'deleted') await bucket.remove([file.path]); throw fail(409, 'Upload session closed. Refresh your order.'); }
     res.status(201).json({ path: file.path, pages, pageCountSource: pages === null ? 'manual' : 'automatic' });

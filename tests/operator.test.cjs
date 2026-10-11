@@ -196,7 +196,8 @@ test('daily earnings update before shop close, include paid declarations, and ex
     assert.equal(historyDays.length, 7);
     const yesterday = historyDays.find(day => day.dataset.date === '2026-10-05');
     assert.match(yesterday.textContent, /₹15\.00/);
-    assert.match(yesterday.textContent, /2 payments marked paid/);
+    assert.equal(yesterday.classList.contains('earnings-history-row'), true);
+    assert.equal(yesterday.querySelector('p'), null);
     const twoDaysAgo = historyDays.find(day => day.dataset.date === '2026-10-04');
     assert.match(twoDaysAgo.textContent, /₹25\.00/);
     assert.match(historyDays.find(day => day.dataset.date === '2026-09-29').textContent, /₹0\.00/);
@@ -204,7 +205,7 @@ test('daily earnings update before shop close, include paid declarations, and ex
   } finally { dom.window.close(); }
 });
 
-test('orders past their pickup slot leave the active queue and stay in history', async () => {
+test('uncollected orders remain actionable after their hourly identification slot ends', async () => {
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'http://localhost/operator.html', runScripts: 'outside-only' });
   const NativeDate = dom.window.Date;
   const fixedNow = NativeDate.parse('2026-10-06T11:00:00.000Z');
@@ -219,13 +220,12 @@ test('orders past their pickup slot leave the active queue and stay in history',
     dom.window.eval(fs.readFileSync(path.join(root, 'operator.js'), 'utf8'));
     await tick();
     const d = dom.window.document;
-    assert.equal(d.querySelector('#count-active').textContent, '1');
+    assert.equal(d.querySelector('#count-active').textContent, '2');
     assert.match(d.querySelector('#operator-orders').textContent, /ACTIVE-S/);
-    assert.doesNotMatch(d.querySelector('#operator-orders').textContent, /EXPIRED-/);
-    d.querySelector('[data-filter=history]').click();
     assert.match(d.querySelector('#operator-orders').textContent, /EXPIRED-/);
-    assert.match(d.querySelector('#operator-orders').textContent, /Pickup slot passed/);
-    assert.equal(d.querySelector('#operator-orders').querySelector('button'), null);
+    assert.ok([...d.querySelectorAll('#operator-orders button')].some(button => button.textContent === 'Start printing' && !button.disabled));
+    d.querySelector('[data-filter=history]').click();
+    assert.doesNotMatch(d.querySelector('#operator-orders').textContent, /EXPIRED-/);
   } finally { dom.window.close(); }
 });
 
@@ -257,4 +257,30 @@ test('daily earnings have a dedicated operator dashboard separate from orders', 
   assert.match(earnings, /id="daily-earnings"/);
   assert.match(earnings, /id="earnings-history"/);
   assert.doesNotMatch(earnings, /id="operator-orders"/);
+});
+
+test('paid priority wins, payment time breaks ties, offline visits stay separate, and new badges can be acknowledged', async () => {
+  const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'https://example.test/operator.html', runScripts: 'outside-only' });
+  const order = (id, paymentReceivedMs, priority = false) => ({ id, uid:'student', status:'accepted', paymentStatus:'paid', paymentReceivedMs, priority, createdAt:'2026-10-01T00:00:00Z', files:[], quoteAmountPaise:500 });
+  let finish, calls = 0;
+  const data = [order('normal-later', 30), order('urgent-later', 20, true), order('normal-first', 1), order('urgent-first', 10, true), {...order('cash-visit', 0, true), paymentStatus:'unpaid', paymentPreference:'offline', offlineNumber:42}];
+  dom.window.KitswAuth = {current:async()=>({uid:'operator',email:'operator@kitsw.ac.in',emailVerified:true})};
+  dom.window.OrderService = {me:async()=>({isOperator:true}), shop:async()=>({acceptingOrders:true}), operatorOrders:async()=>{calls++; return calls === 1 ? {orders:data} : new Promise(resolve=>{finish=resolve});}};
+  try {
+    dom.window.eval(fs.readFileSync(path.join(root,'operator.js'),'utf8')); await tick();
+    const d=dom.window.document;
+    assert.deepEqual([...d.querySelectorAll('[data-order-id]')].map(el=>el.dataset.orderId), ['urgent-first','urgent-later','normal-first','normal-later','cash-visit']);
+    assert.match(d.querySelector('#operator-orders').textContent,/Counter visits/);
+    assert.match(d.querySelector('#operator-orders').textContent,/Offline ID 042/);
+    d.querySelector('[data-order-id="urgent-first"] .new-order-badge').click();
+    assert.equal(d.querySelector('[data-order-id="urgent-first"]').classList.contains('new-order'),false);
+    d.querySelector('#operator-refresh').click(); await tick();
+    assert.equal(d.querySelector('#operator-refresh').disabled,true);
+    assert.match(d.querySelector('#operator-refresh').textContent,/Refreshing/);
+    finish({orders:[...data,order('brand-new',50)]}); await tick();
+    assert.equal(d.querySelector('#operator-refresh').disabled,false);
+    assert.match(d.querySelector('#operator-feedback').textContent,/Updated just now/);
+    assert.ok(d.querySelector('[data-order-id="brand-new"] .new-order-badge'));
+    assert.equal(d.querySelector('[data-order-id="urgent-first"] .new-order-badge'),null);
+  } finally {dom.window.close();}
 });
