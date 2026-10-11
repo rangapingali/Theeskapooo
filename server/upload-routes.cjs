@@ -19,14 +19,18 @@ module.exports = function registerUploads(app, { db, bucket, inspectDocument = r
       const s = (await tx.get(session)).data();
       if (s && (s.uid !== req.student.uid || s.state !== 'open' || Date.now() - s.createdMs >= 24 * 3600000)) throw fail(409, 'This upload session is closed. Start a new order.');
       const files = s?.files || {};
+      const isNewFile = !files[req.params.fileId];
+      const allowance = (await tx.get(quota)).data() || { count: 0, bytes: 0 };
+      const nextBytes = (allowance.bytes || 0) + (isNewFile ? file.size : 0);
+      if (nextBytes > 100 * 1024 * 1024) throw fail(429, 'Your daily upload allowance is 100 MB. Contact the shop if you need more.');
       if (files[req.params.fileId] && ['name', 'size', 'path'].some(k => files[req.params.fileId][k] !== file[k])) throw fail(409, 'Document changed. Start a new order.');
       files[req.params.fileId] = file;
       if (Object.keys(files).length > 10 || Object.values(files).reduce((n, f) => n + f.size, 0) > 100 * 1024 * 1024) throw fail(400, 'An order allows 10 files and 100 MB total.');
       if (!s) {
-        const count = (await tx.get(quota)).data()?.count || 0;
+        const count = allowance.count || 0;
         if (count >= 30) throw fail(429, 'Daily upload limit reached.');
-        tx.set(quota, { count: count + 1 });
       }
+      tx.set(quota, { count: (allowance.count || 0) + (s ? 0 : 1), bytes: nextBytes });
       tx.set(session, { uid: req.student.uid, state: 'open', createdMs: s?.createdMs || Date.now(), files });
     });
     const pages = await inspectDocument(req.body, file.name);

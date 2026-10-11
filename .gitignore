@@ -21,3 +21,5 @@ firebase-private/
 *.log
 video/launch/build/
 video/launch/output/
+video/reveal/build/
+video/reveal/output/

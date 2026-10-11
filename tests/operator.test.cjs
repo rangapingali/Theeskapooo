@@ -281,8 +281,10 @@ test('daily earnings have a dedicated operator dashboard separate from orders', 
   const earnings = fs.readFileSync(path.join(root, 'earnings.html'), 'utf8');
   assert.doesNotMatch(orders, /id="daily-earnings"/);
   assert.doesNotMatch(orders, /id="earnings-history"/);
-  assert.match(orders, /href="earnings\.html">Daily earnings/);
-  assert.match(earnings, /class="nav-item active" href="earnings\.html" aria-current="page">Daily earnings/);
+  const ordersDom = new JSDOM(orders), earningsDom = new JSDOM(earnings);
+  assert.equal(ordersDom.window.document.querySelector('a[href="earnings.html"]').textContent.trim(), 'Daily earnings');
+  assert.equal(earningsDom.window.document.querySelector('a[href="earnings.html"][aria-current="page"]').textContent.trim(), 'Daily earnings');
+  ordersDom.window.close(); earningsDom.window.close();
   assert.match(earnings, /id="daily-earnings"/);
   assert.match(earnings, /id="earnings-history"/);
   assert.doesNotMatch(earnings, /id="operator-orders"/);

@@ -9,6 +9,10 @@ const { validSignature, assertCaptured } = require('./payment-security.cjs');
 const { paymentConfiguration } = require('./payment-config.cjs');
 const app = express();
 app.disable('x-powered-by');
+if (process.env.RENDER === 'true') app.set('trust proxy', 1);
+const protection = require('./http-protection.cjs');
+app.use(protection.securityHeaders);
+app.use('/api', protection.sameOrigin, protection.rateLimit({ limit: 600 }));
 const root = path.resolve(__dirname, '..');
 const ordersEnabled = process.env.KITSW_ENABLE_ORDERS === 'true';
 let storageReady = !ordersEnabled;
@@ -26,7 +30,7 @@ if (ordersEnabled) {
 }
 function failure(status, message) { return Object.assign(new Error(message), { httpStatus: status }); }
 app.use((req, res, next) => {
-  res.set('X-Content-Type-Options', 'nosniff'); res.set('Referrer-Policy', 'strict-origin-when-cross-origin'); res.set('X-Frame-Options', 'SAMEORIGIN');
+  res.set('X-Content-Type-Options', 'nosniff'); res.set('X-Frame-Options', 'SAMEORIGIN');
   if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
   if (req.path === '/service-worker.js') res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   next();
@@ -81,7 +85,7 @@ app.use('/api', async (req, res, next) => {
   if (!ordersEnabled) throw failure(503, 'Live orders are not activated. The app team must configure the server and document storage.');
   if (!storageReady) throw failure(503, 'Document storage is reconnecting. Keep this page open and retry shortly.');
   const header = req.get('authorization') || '';
-  if (!header.startsWith('Bearer ')) throw failure(401, 'Please sign in again.');
+  if (!header.startsWith('Bearer ') || header.length > 8192) throw failure(401, 'Please sign in again.');
   let token; try { token = await adminAuth.verifyIdToken(header.slice(7), true); } catch { throw failure(401, 'Your session is invalid or expired. Please sign in again.'); }
   if (!token.email_verified || !/^[^\s@]+@kitsw\.ac\.in$/i.test(token.email || '')) throw failure(403, 'A verified KITSW college email is required.');
   const now = Date.now(); const counter = counters.get(token.uid) || { count: 0, until: now + 60000 };
@@ -92,6 +96,7 @@ app.use('/api', async (req, res, next) => {
 });
 require('./manual-routes.cjs')(app, { db, bucket, paymentConfig, publicOrder, FieldValue, env: process.env });
 require('./payment-drafts.cjs')(app, { db, paymentConfig, publicOrder, env: process.env });
+app.use('/api/uploads', protection.uploadSlots(2));
 require('./upload-routes.cjs')(app, { db, bucket });
 require('./shop-settings.cjs').registerShop(app, { db, isOperator: token => require('./manual-payments.cjs').isOperator(token, process.env.PRINT_OPERATOR_EMAILS) });
 require('./trending-prints.cjs')(app, { db, isOperator: token => require('./manual-payments.cjs').isOperator(token, process.env.PRINT_OPERATOR_EMAILS) });
@@ -151,9 +156,9 @@ app.use((req, res) => res.status(404).json({ error: 'Not found.' }));
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
   // Do not log tokens, payment credentials, document names or request bodies.
-  const status = error.httpStatus || (error.type === 'entity.parse.failed' ? 400 : 500);
+  const status = error.httpStatus || (error.type === 'entity.too.large' ? 413 : error.type === 'entity.parse.failed' ? 400 : 500);
   if (status === 500) console.error('Request failed:', typeof error.code === 'string' ? error.code : 'server-error');
-  res.status(status).json({ error: error.httpStatus ? error.message : status === 400 ? 'Invalid request JSON.' : 'The server could not complete the request. Check server credentials, Realtime Database and Supabase storage setup.' });
+  res.status(status).json({ error: error.httpStatus ? error.message : status === 413 ? 'This request is too large. Reduce the document size and try again.' : status === 400 ? 'Invalid request JSON.' : 'The service is temporarily unavailable. Retry shortly; check saved orders before repeating a payment.' });
 });
 if (require.main === module) {
   const listen = require('./listen-options.cjs').listenOptions();

@@ -18,6 +18,13 @@ test('uploads enforce session ownership, body size, expiry and closed-order prot
     assert.equal((await send('student', 4)).status, 400);
     assert.equal((await send()).status, 201);
     assert.equal((await send()).status, 201);
+    const allowance = records.get('uploadQuotas/student-' + new Date().toISOString().slice(0, 10));
+    assert.equal(allowance.bytes, 3, 'retries do not charge the same file again');
+    assert.equal(allowance.count, 1);
+    allowance.bytes = 100 * 1024 * 1024;
+    const extra = await fetch(url.replace(file, randomUUID()), { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-File-Size': '3' }, body: Buffer.from('pdf') });
+    assert.equal(extra.status, 429, 'additional files cannot exceed the daily byte allowance');
+    assert.equal(writes, 2);
     assert.equal((await send('other')).status, 409);
     records.get('uploadSessions/' + order).state = 'ordered';
     assert.equal((await send()).status, 409);

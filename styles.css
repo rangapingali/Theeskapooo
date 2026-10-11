@@ -24,3 +24,17 @@ main>*,.login-card,.login-card form,.login-card section,.input-wrap{min-width:0;
 .sidebar .product-brand{display:block}.sidebar .product-logo{width:100%;height:auto}
 @media(max-width:740px){.site-header .product-brand{max-width:72%}.site-header .product-logo{width:260px}.site-header .campus-tag{font-size:12px;max-width:85px;text-align:right}.sidebar .product-brand{max-width:230px}}
 @media(forced-colors:active){.login-card .input-wrap:focus-within{outline:2px solid Highlight;outline-offset:-3px}}
+
+@media(max-width:740px){
+  body:not(.dashboard) .login-side{grid-row:1}
+  body:not(.dashboard) .intro{grid-row:2}
+  body:not(.dashboard) .site-header{height:76px}
+  body:not(.dashboard) .login-card{padding:22px 18px}
+  body:not(.dashboard) .login-card .institute{gap:10px}
+  body:not(.dashboard) .login-card .institute img{width:56px;height:56px;flex:0 0 56px}
+  body:not(.dashboard) .login-card .institute p{font-size:12px;letter-spacing:.3px}
+  body:not(.dashboard) .divider{margin:18px 0}
+  body:not(.dashboard) .input-wrap:focus-within{outline-offset:-3px;box-shadow:inset 0 0 0 1px #53794d}
+  body:not(.dashboard) .auth-tabs button,body:not(.dashboard) .text-button{min-height:44px}
+  body:not(.dashboard) footer{padding-bottom:max(24px,env(safe-area-inset-bottom))}
+}

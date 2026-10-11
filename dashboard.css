@@ -239,3 +239,31 @@
   .dashboard .order-filters button,
   .dashboard .step-actions button{min-height:48px}
 }
+
+/* Reserve room for the installed-app navigation and readable thumb targets. */
+@media(max-width:760px){
+  .dashboard .dashboard-main{padding-bottom:calc(180px + env(safe-area-inset-bottom))}
+  .dashboard .sidebar .nav-item,.dashboard .sidebar .nav-item>.nav-label{font-size:12px;line-height:1.3}
+  .dashboard .sidebar .nav-item{min-height:64px}
+  .dashboard .sidebar nav{align-items:stretch}
+  .dashboard .user-menu .quiet{font-size:14px;min-height:44px}
+  .dashboard .dashboard-header{padding-inline:max(16px,env(safe-area-inset-left))}
+  .dashboard .step-actions{flex-wrap:wrap}
+  .dashboard .step-actions #step-total{min-width:0;font-size:20px}
+  .dashboard .step-actions button{flex:1 1 110px;min-width:0}
+  .dashboard .order-card,.dashboard .operator-file,.dashboard .selected-file{overflow-wrap:anywhere;min-width:0}
+  .dashboard .operator-file .document-download,.dashboard .operator-file .document-print{width:100%;min-width:0}
+  .dashboard .order-card>.secondary-action{width:100%;margin-right:0}
+  .dashboard dialog{overscroll-behavior:contain;max-height:calc(100dvh - 24px);padding-bottom:max(20px,env(safe-area-inset-bottom))}
+  .dashboard .status-pill{max-width:100%;white-space:normal;line-height:1.5}
+  .dashboard .shop-controls button{width:100%}
+  .dashboard .shop-controls{align-items:stretch}
+  .checkout-steps{scroll-margin-top:16px}
+  .dashboard .setting-grid input:focus-visible,.dashboard .setting-grid select:focus-visible,.dashboard .setting-grid textarea:focus-visible{outline-offset:-3px}
+}
+@media(max-width:380px){
+  .dashboard .checkout-steps button{font-size:14px}
+  .dashboard .sidebar .nav-item,.dashboard .sidebar .nav-item>.nav-label{font-size:11px}
+  .dashboard .collection-slot strong{font-size:22px}
+  .dashboard .earnings-history-row .order-card-top{gap:6px}
+}
