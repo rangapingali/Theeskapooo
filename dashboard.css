@@ -189,6 +189,7 @@
     border:0;
     visibility:visible!important;
   }
+  .dashboard .sidebar .sidebar-team>span{display:none!important}
   .dashboard .sidebar .sidebar-team img{display:block;width:120px;height:auto}
   .dashboard .sidebar .nav-item{
     flex:1 1 0;
