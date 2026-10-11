@@ -30,6 +30,25 @@
   const paid = order => ['paid', 'declared_paid'].includes(order.paymentStatus);
   const waitingOffline = order => order.paymentPreference === 'offline' && !paid(order);
   const queueTime = order => order.paymentReceivedMs || Date.parse(order.createdAt) || 0;
+  function matchesFilter(order) {
+    const completed = ['collected', 'cancelled'].includes(order.status);
+    if (filter === 'history') return completed;
+    if (completed) return false;
+    return filter === 'all' || (filter === 'pending' ? order.paymentStatus === 'pending_verification' : order.status === filter);
+  }
+  function setFilter(next) {
+    filter = next;
+    document.querySelectorAll('[data-filter]').forEach(item => item.setAttribute('aria-pressed', String(item.dataset.filter === filter)));
+  }
+  function applyLatestOrders(latest) {
+    const currentIds = new Set(orders.map(order => order.id));
+    const newActiveOrders = latest.filter(order => !currentIds.has(order.id) && !['collected', 'cancelled'].includes(order.status));
+    observeOrders(latest);
+    if (newActiveOrders.some(order => !matchesFilter(order))) {
+      setFilter('all');
+      message('A new order arrived. Showing all active orders.');
+    }
+  }
 
   function message(text) { $('#operator-feedback').textContent = text; $('#operator-feedback').hidden = !text; }
   function indiaDateKey(date) {
@@ -187,7 +206,7 @@
     $('#count-active').textContent = active.length;
     $('#count-payments').textContent = active.filter(o => o.paymentStatus === 'pending_verification').length;
     $('#count-ready').textContent = active.filter(o => o.status === 'ready').length;
-    const selected = filter === 'history' ? orders.filter(order => ['collected','cancelled'].includes(order.status)) : active.filter(order => filter === 'all' || (filter === 'pending' ? order.paymentStatus === 'pending_verification' : order.status === filter));
+    const selected = orders.filter(matchesFilter);
     if (!selected.length) { list.append(node('div', allowed ? 'No orders in this queue.' : 'Operator access is required to view orders.', 'panel empty-orders')); return; }
     selected.sort((a,b) => filter === 'history'
       ? (b.closedMs || Date.parse(b.createdAt) || 0) - (a.closedMs || Date.parse(a.createdAt) || 0)
@@ -278,7 +297,7 @@
       if (!preview) {
         const results = await Promise.allSettled([earningsPage ? Promise.resolve() : refreshShop(), api.operatorOrders()]);
         if (results[1].status === 'rejected') throw results[1].reason;
-        if (!busy) observeOrders(results[1].value.orders);
+        if (!busy) applyLatestOrders(results[1].value.orders);
       }
       render();
       if (manual) message(shopError && !earningsPage ? 'Orders updated. Shop status unavailable: ' + shopError : 'Updated just now.');
@@ -290,7 +309,7 @@
     editing = false;
     await (allowed ? load(true) : start());
   });
-  document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => { if (busy) return; filter = button.dataset.filter; document.querySelectorAll('[data-filter]').forEach(item => item.setAttribute('aria-pressed', String(item === button))); render(); }));
+  document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => { if (busy) return; setFilter(button.dataset.filter); render(); }));
   async function start() {
     if (preview) {
       shop = { acceptingOrders: true };
@@ -360,7 +379,7 @@
         if (fresh && $('#queue-updates')) { $('#queue-updates').hidden = false; $('#queue-updates').textContent = 'New orders have arrived. Finish this entry, then refresh to see them.'; }
         return;
       }
-      if (!busy && !editing && !loading && JSON.stringify(latest) !== JSON.stringify(orders)) { observeOrders(latest); render(); }
+      if (!busy && !editing && !loading && JSON.stringify(latest) !== JSON.stringify(orders)) { applyLatestOrders(latest); render(); }
     } catch { message('Could not refresh approvals. Use Refresh to retry.'); }
     finally { polling = false; }
   }, 10000);

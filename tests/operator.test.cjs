@@ -229,6 +229,35 @@ test('uncollected orders remain actionable after their hourly identification slo
   } finally { dom.window.close(); }
 });
 
+test('a newly arrived order is shown even when the selected status filter would hide it', async () => {
+  const dom = new JSDOM(fs.readFileSync(path.join(root, 'operator.html'), 'utf8'), { url: 'http://localhost/operator.html', runScripts: 'outside-only' });
+  const orders = [
+    { id: 'printing-existing', uid: 'student', email: 'student@example.com', status: 'printing', paymentStatus: 'paid', files: [], quoteAmountPaise: 500 }
+  ];
+  dom.window.KitswAuth = { current: async () => ({ uid: 'operator', email: 'operator@kitsw.ac.in', emailVerified: true }) };
+  dom.window.OrderService = {
+    me: async () => ({ isOperator: true }),
+    shop: async () => ({ acceptingOrders: true }),
+    operatorOrders: async () => ({ orders: [...orders] })
+  };
+  try {
+    dom.window.eval(fs.readFileSync(path.join(root, 'operator.js'), 'utf8'));
+    await tick();
+    const d = dom.window.document;
+    d.querySelector('[data-filter=printing]').click();
+    assert.equal(d.querySelectorAll('#operator-orders .order-card').length, 1);
+
+    orders.push({ id: 'new-order-0001', uid: 'student', email: 'student@example.com', status: 'accepted', paymentStatus: 'unpaid', files: [], quoteAmountPaise: 500 });
+    d.querySelector('#operator-refresh').click();
+    await tick();
+
+    assert.equal(d.querySelector('#count-active').textContent, '2');
+    assert.match(d.querySelector('#operator-orders').textContent, /#NEW-ORDE/);
+    assert.equal(d.querySelector('[data-filter=all]').getAttribute('aria-pressed'), 'true');
+    assert.equal(d.querySelector('[data-filter=printing]').getAttribute('aria-pressed'), 'false');
+  } finally { dom.window.close(); }
+});
+
 test('daily earnings remain visible before 5:30 PM IST', async () => {
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'earnings.html'), 'utf8'), { url: 'http://localhost/earnings.html', runScripts: 'outside-only' });
   const NativeDate = dom.window.Date;
