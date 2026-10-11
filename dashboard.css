@@ -159,3 +159,44 @@
 @media(max-width:760px){.dashboard:not(.shop-dashboard) #notification-alerts{grid-column:2 / -1;grid-row:3;justify-self:start}}
 
 .operator-guide summary{cursor:pointer;font-size:18px;font-weight:700;padding:8px}.dashboard .operator-guide .sidebar-note{display:block;margin:16px 0;padding:0;background:none}.operator-guide p{font-size:17px;line-height:1.7}.dashboard .operator-guide{margin-top:24px}
+
+@media(max-width:760px){
+  .dashboard .sidebar{
+    position:fixed;
+    inset:auto 0 0;
+    width:100%;
+    height:auto;
+    padding:8px max(8px,env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom));
+    border:0;
+    border-top:1px solid #e4e9df;
+    box-shadow:0 -5px 18px #214f3c12;
+    z-index:10;
+  }
+  .dashboard .sidebar .brand{display:none}
+  .dashboard .sidebar nav{display:flex;gap:4px;overflow:visible;margin:0;padding:0}
+  .dashboard .sidebar .nav-item{
+    flex:1 1 0;
+    min-width:0;
+    min-height:62px;
+    width:auto;
+    padding:6px 3px;
+    flex-direction:column;
+    justify-content:center;
+    gap:3px;
+    text-align:center;
+    white-space:normal;
+    overflow-wrap:anywhere;
+    font-size:11px;
+    line-height:1.2;
+  }
+  .dashboard .sidebar .nav-item>span{font-size:22px;line-height:1}
+  .dashboard .sidebar .nav-item b{margin:0;font-size:10px;padding:1px 5px}
+  .dashboard .dashboard-main{padding-bottom:calc(82px + env(safe-area-inset-bottom))}
+  .dashboard .setting-grid input,
+  .dashboard .setting-grid select,
+  .dashboard .setting-grid textarea{min-height:48px;padding:12px;font-size:16px}
+  .dashboard .primary-action,
+  .dashboard .secondary-action,
+  .dashboard .order-filters button,
+  .dashboard .step-actions button{min-height:48px}
+}
