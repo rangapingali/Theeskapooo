@@ -6,7 +6,9 @@ module.exports = function registerUploads(app, { db, bucket, inspectDocument = r
   app.post('/api/uploads/:orderId/:fileId', (req, res, next) => {
     if (!idPattern.test(req.params.orderId) || !idPattern.test(req.params.fileId)) return next(fail(400, 'Invalid upload identifier.'));
     const size = Number(req.get('x-file-size')), name = req.query.name;
-    if (typeof name !== 'string' || name.length > 240 || !Number.isInteger(size) || core.fileError({ name, size })) return next(fail(400, 'Choose a supported document up to 25 MB.'));
+    if (typeof name !== 'string' || name.length > 240 || !Number.isInteger(size)) return next(fail(400, 'Choose a PDF or PNG up to 25 MB.'));
+    const formatError = core.shopFileError({ name, size });
+    if (formatError) return next(fail(400, formatError));
     req.document = { name, size, path: `student-uploads/${req.student.uid}/${req.params.orderId}/${req.params.fileId}.${name.split('.').pop().toLowerCase()}` };
     next();
   }, express.raw({ type: 'application/octet-stream', limit: '25mb' }), async (req, res) => {

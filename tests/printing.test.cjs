@@ -50,8 +50,8 @@ test('server validates ownership references and ignores client-supplied totals a
 });
 test('server recalculates image n-up pricing from the trusted file extension', () => {
   const input = fixture();
-  input.files[0].name = 'photo.jpg';
-  input.files[0].path = input.files[0].path.replace('.pdf', '.jpg');
+  input.files[0].name = 'photo.png';
+  input.files[0].path = input.files[0].path.replace('.pdf', '.png');
   input.files[0].settings = { ...core.defaults, pages: 1, copies: 5, layout: 4 };
   assert.equal(validateOrder(input, 'student1').estimate.amount, 10);
 });

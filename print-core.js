@@ -38,6 +38,14 @@
     if (file.size > 25 * 1024 * 1024) return 'Each file must be 25 MB or smaller.';
     return '';
   }
+  function shopFileError(file, settings) {
+    const error = fileError(file); if (error) return error;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['pdf', 'png'].includes(ext)) return 'This shop accepts PDF and PNG only. Export to PDF before uploading.';
+    if (settings?.colour === 'colour' && ext !== 'pdf') return 'Colour printing on the Canon requires PDF. Export this PNG to PDF, or choose black & white.';
+    if (settings && settings.size !== 'A4') return 'Only A4 is currently available at the shop. Other paper sizes await confirmation.';
+    return '';
+  }
   function paymentAppointment(value, now = Date.now()) {
     if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value.date || '') || !/^\d{2}:\d{2}$/.test(value.time || '') || value.time < '09:00' || value.time > '16:30') throw Error('Choose a payment date and time between 9:00 AM and 4:30 PM IST.');
     const startMs = Date.parse(value.date + 'T' + value.time + ':00+05:30');
@@ -46,7 +54,7 @@
     if (startMs < now) throw Error('Choose a payment time in the future.');
     return { date: value.date, time: value.time, scheduledMs: startMs, deadlineMs };
   }
-  const api = { formats, rates, defaults, pageCount, estimate, fileError, isImageFile, priorityFee, paymentAppointment };
+  const api = { formats, rates, defaults, pageCount, estimate, fileError, shopFileError, isImageFile, priorityFee, paymentAppointment };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PrintCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

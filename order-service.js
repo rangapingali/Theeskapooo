@@ -91,6 +91,22 @@ window.OrderService = (() => {
     const link = document.createElement('a'); link.href = url; link.download = name; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
+  async function preparePrintShare(orderId, index, name) {
+    const types = { pdf: 'application/pdf', png: 'image/png' };
+    const type = types[name.split('.').pop().toLowerCase()];
+    if (!type) throw Error('Use PDF or PNG for mobile printing.');
+    if (!navigator.share || !navigator.canShare) throw Error('File sharing is unavailable in this browser. Use Download document and open it in the printer app.');
+    const blob = await documentBlob(orderId, index);
+    const file = new File([blob], name.replace(/[\\/\u0000-\u001f]/g, '_'), { type });
+    if (!navigator.canShare({ files: [file] })) throw Error('This phone cannot share this file. Use Download document and open it in the printer app.');
+    const expires = Date.now() + 120000;
+    // Call on a SECOND tap: network fetches can consume Android's transient activation.
+    // Sharing does not prove the document printed, so it never changes order status.
+    return () => {
+      if (Date.now() > expires) throw Error('Prepared file expired. Prepare it again before sharing.');
+      return navigator.share({ files: [file] });
+    };
+  }
   async function openForPrint(orderId, index, name) {
     const ext = name.split('.').pop().toLowerCase();
     const types = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
@@ -118,7 +134,7 @@ window.OrderService = (() => {
   }
   const post = (path, body) => request(path, { method: 'POST', body: JSON.stringify(body) });
   return {
-    configuration, upload, pay, download, openForPrint,
+    configuration, upload, pay, download, openForPrint, preparePrintShare,
     preparePayment: body => post('/payment-drafts', body),
     declarePayment: id => post(`/orders/${encodeURIComponent(id)}/declare-payment`, { paymentDeclared: true }),
     shop: () => request('/shop'),

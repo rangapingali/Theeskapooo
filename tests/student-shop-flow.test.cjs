@@ -93,15 +93,14 @@ test('student and shop journey: verified PDF price, unique slot, busy gating, ma
     assert.equal((await post('/operator/orders/'+nextId+'/cash',{amountPaise:3000,receiptChecked:true},'shop')).status,409);
     assert.equal((await post('/operator/orders/'+nextId+'/cash',{amountPaise:3000,receiptChecked:true,noUpiReceived:true},'shop')).status,200);
     const student=await (await fetch(base+'/orders')).json();assert.equal(student.orders.find(o=>o.id===id).status,'collected');
-    // A manual-count document remains clearly distinguished through upload,
-    // checkout and operator handling. Priority is priced once by the server.
-    const manualId=randomUUID(),txt=Buffer.from('Report with application-dependent pagination');
-    const manualUpload=await fetch(base+'/uploads/'+manualId+'/'+randomUUID()+'?name=report.txt',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-File-Size':String(txt.length)},body:txt});
-    assert.equal(manualUpload.status,201);const manual=await manualUpload.json();assert.equal(manual.pageCountSource,'manual');
-    const manualInput={...order(manualId,manual.path),priority:true,priorityFeePaise:0,files:[{name:'report.txt',path:manual.path,size:txt.length,settings:{...require('../print-core.js').defaults,pages:4}}]};
-    const urgent=await post('/orders',manualInput);assert.equal(urgent.status,201);assert.equal(urgent.data.order.quoteAmountPaise,2800);assert.equal(urgent.data.order.files[0].pageCountSource,'manual');
-    assert.equal((await post('/operator/orders/'+manualId+'/cash',{amountPaise:2800,receiptChecked:true},'shop')).status,200);
-    assert.equal((await post('/operator/orders/'+manualId+'/status',{status:'printing'},'shop')).status,409);
-    const checked=await post('/operator/orders/'+manualId+'/status',{status:'printing',pagesChecked:true},'shop');assert.equal(checked.status,200);assert.equal(checked.data.order.status,'printing');
+    // Unsupported formats cannot bypass the new shop policy through direct API calls.
+    const urgentId=randomUUID(),txt=Buffer.from('Report');
+    const rejected=await fetch(base+'/uploads/'+urgentId+'/'+randomUUID()+'?name=report.txt',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-File-Size':String(txt.length)},body:txt});
+    assert.equal(rejected.status,400);
+    const urgentFile=await upload(urgentId);
+    const urgent=await post('/orders',{...order(urgentId,urgentFile.path),priority:true,priorityFeePaise:0});
+    assert.equal(urgent.status,201);assert.equal(urgent.data.order.quoteAmountPaise,3800);
+    assert.equal((await post('/operator/orders/'+urgentId+'/cash',{amountPaise:3800,receiptChecked:true},'shop')).status,200);
+    assert.equal((await post('/operator/orders/'+urgentId+'/status',{status:'printing'},'shop')).status,200);
   } finally {await new Promise(r=>server.close(r));}
 });

@@ -120,14 +120,14 @@ test('offline orders can record cash and status actions carry the required stude
     assert.equal(actions[0].body.studentPresent, true);
     assert.equal(actions[0].body.amountPaise, 500);
 
-    const start = [...$('#operator-orders').querySelectorAll('button')].find(button => button.textContent === 'Start printing');
+    const start = [...$('#operator-orders').querySelectorAll('button')].find(button => button.textContent === 'Mark printing');
     assert.equal(start.disabled, false);
     start.click(); await tick();
     assert.equal(actions.length, 1);
     assert.match($('#operator-feedback').textContent, /student is present/);
     const present = $('#operator-orders').querySelector('input[type=checkbox]');
     present.checked = true;
-    [...$('#operator-orders').querySelectorAll('button')].find(button => button.textContent === 'Start printing').click(); await tick();
+    [...$('#operator-orders').querySelectorAll('button')].find(button => button.textContent === 'Mark printing').click(); await tick();
     assert.equal(actions[1].action, 'status');
     assert.equal(actions[1].body.status, 'printing');
     assert.equal(actions[1].body.studentPresent, true);
@@ -223,7 +223,7 @@ test('uncollected orders remain actionable after their hourly identification slo
     assert.equal(d.querySelector('#count-active').textContent, '2');
     assert.match(d.querySelector('#operator-orders').textContent, /ACTIVE-S/);
     assert.match(d.querySelector('#operator-orders').textContent, /EXPIRED-/);
-    assert.ok([...d.querySelectorAll('#operator-orders button')].some(button => button.textContent === 'Start printing' && !button.disabled));
+    assert.ok([...d.querySelectorAll('#operator-orders button')].some(button => button.textContent === 'Mark printing' && !button.disabled));
     d.querySelector('[data-filter=history]').click();
     assert.doesNotMatch(d.querySelector('#operator-orders').textContent, /EXPIRED-/);
   } finally { dom.window.close(); }

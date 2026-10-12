@@ -238,7 +238,7 @@
         badge.append(node('strong', 'Slot ' + slot.slot + ' / No. ' + String(slot.number).padStart(3, '0')), node('span', slot.date + ' | ' + slot.startHour + ':00-' + slot.endHour + ':00 IST'));
         card.append(badge);
       }
-      (order.trendingPrints || []).forEach(item => card.append(node('p', `Trending quick print: ${item.title} · ${money(item.pricePaise)}`, 'operator-file')));
+      (order.trendingPrints || []).forEach(item => card.append(node('p', `Use saved shop document: ${item.title} · ${money(item.pricePaise)}`, 'operator-file')));
       (order.files || []).forEach((file, index) => {
         const s = file.settings; const row = node('p', undefined, 'operator-file');
         row.append(node('strong', file.name));
@@ -246,6 +246,22 @@
         const image = /\.(jpg|jpeg|png|webp|heic|heif|bmp|gif|tif|tiff)$/i.test(file.name);
         [s.copies + ' copies', s.colour === 'bw' ? 'Black & white' : 'Colour', s.sides === 'double' ? 'Double-sided' : 'Single-sided', s.size, 'Pages: ' + (s.range || 'all (' + s.pages + ')'), (s.orientation || 'portrait'), image ? (s.layout || 1) + ' image' + (s.layout === 1 ? '' : 's') + ' per side' : (s.layout || 1) + ' page' + (s.layout === 1 ? '' : 's') + ' per side'].forEach(label => specs.append(node('span', label)));
         row.append(specs);
+        row.append(node('strong', s.colour === 'colour' ? 'Printer: Canon · Colour · PDF only' : 'Printer: Kyocera TASKalfa MZ3200i · Black & white', 'printer-destination'));
+        if (/\.(pdf|png)$/i.test(file.name) && navigator.share && navigator.canShare) {
+          const share = node('button', 'Prepare phone printing', 'primary-action document-share');
+          let send = null;
+          share.disabled = preview || order.documentsDeleted || ['collected','cancelled'].includes(order.status) || !['paid','declared_paid'].includes(order.paymentStatus) || Boolean(order.offlineNumber && order.status === 'accepted');
+          if (share.disabled) share.title = 'Requires an active paid order. For offline orders, confirm the student is present and select Mark printing first.';
+          share.addEventListener('click', async () => {
+            share.disabled = true;
+            try {
+              if (!send) { send = await api.preparePrintShare(order.id, index, file.name); share.textContent = 'Open in print / PDF app →'; }
+              else { await send(); send = null; share.textContent = 'Prepare phone printing'; message('File opened/shared. Choose Print in the receiving PDF/print app. Match the order settings on the phone or printer, then check the pages before marking ready.'); }
+            } catch (error) { send = null; share.textContent = 'Prepare phone printing'; if (error.name !== 'AbortError') message(error.message); }
+            finally { share.disabled = false; }
+          });
+          row.append(share);
+        }
         if (file.pageCountSource === 'manual') row.append(node('strong', 'Student-entered page count: ' + s.pages + ' — check the file before printing.', 'manual-page-warning'));
         const download = node('button', preview ? 'Preview file unavailable' : '↓ Download document', 'primary-action document-download'); download.disabled = preview;
         if (order.documentsDeleted || order.status === 'collected') { download.disabled = true; download.textContent = 'File deleted after collection'; }
@@ -280,7 +296,7 @@
       const next = { accepted: 'printing', printing: 'ready', ready: 'collected' }[order.status];
       const pagesCheck = next === 'printing' && (order.files || []).some(file => file.pageCountSource === 'manual') ? checkField(card, 'I checked the student-entered page counts in the documents. If they differ, contact the student before printing.') : null;
       const studentPresent = next === 'printing' && order.paymentPreference === 'offline' ? checkField(card, 'The student is present and I matched their offline identification number before printing.') : null;
-      if (next) { const button = node('button', { printing: 'Start printing', ready: 'Mark ready to collect', collected: 'Confirm handed over' }[next], 'secondary-action'); button.disabled = (next === 'collected' && !['paid','declared_paid'].includes(order.paymentStatus)) || (next === 'printing' && !['paid','declared_paid'].includes(order.paymentStatus)); button.addEventListener('click', () => { if (pagesCheck && !pagesCheck.checked) { message('Check the page counts in the downloaded documents first.'); pagesCheck.focus(); return; } if (studentPresent && !studentPresent.checked) { message('Confirm the student is present and match their offline identification number before printing.'); studentPresent.focus(); return; } act(order, 'status', { status: next, pagesChecked: pagesCheck?.checked === true, studentPresent: studentPresent?.checked === true }); }); card.append(button); }
+      if (next) { const button = node('button', { printing: 'Mark printing', ready: 'Mark ready to collect', collected: 'Confirm handed over' }[next], 'secondary-action'); button.disabled = (next === 'collected' && !['paid','declared_paid'].includes(order.paymentStatus)) || (next === 'printing' && !['paid','declared_paid'].includes(order.paymentStatus)); button.addEventListener('click', () => { if (pagesCheck && !pagesCheck.checked) { message('Check the page counts in the downloaded documents first.'); pagesCheck.focus(); return; } if (studentPresent && !studentPresent.checked) { message('Confirm the student is present and match their offline identification number before printing.'); studentPresent.focus(); return; } act(order, 'status', { status: next, pagesChecked: pagesCheck?.checked === true, studentPresent: studentPresent?.checked === true }); }); card.append(button); }
       if (['submitted', 'accepted'].includes(order.status) && order.paymentStatus === 'unpaid' && !order.lockedAmountPaise && !order.providerOrderId) {
         const cancel = node('button', 'Cancel unprinted order', 'quiet');
         cancel.addEventListener('click', () => { if (window.confirm('Cancel this unprinted order? The student will see it as cancelled.')) act(order, 'status', { status: 'cancelled' }); }); card.append(cancel);

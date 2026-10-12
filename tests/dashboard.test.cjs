@@ -105,13 +105,13 @@ test('counting blocks checkout, then prices detected pages; errors do not become
     assert.equal(ui.$('#pages').value, '12'); assert.equal(ui.$('#pages').readOnly, true); assert.match(ui.$('#total-price').textContent, /60/);
     ui.input('pages', 1); assert.match(ui.$('#total-price').textContent, /60/);
     ui.w.DocumentPages.count = async () => { throw Error('Export to PDF first.'); };
-    await ui.add(['essay.docx']); assert.equal(ui.$('#place-order').disabled, true); assert.match(ui.$('#summary-error').textContent, /Export to PDF/);
+    await ui.add(['damaged.pdf']); assert.equal(ui.$('#place-order').disabled, true); assert.match(ui.$('#summary-error').textContent, /Export to PDF/);
   } finally { ui.dom.window.close(); }
 });
 test('image n-up choices update layout wording and total estimate', async () => {
   const ui = await dashboard();
   try {
-    await ui.add(['photo.jpg']);
+    await ui.add(['photo.png']);
     assert.equal(ui.$('#layout-label').firstChild.textContent, 'Images per printed side');
     assert.equal(ui.$('#layout').options[1].textContent, '2 images per side');
     ui.input('copies', 5);
@@ -173,19 +173,19 @@ test('disabled checkout explains activation and review requirements, then reconn
   } finally {ui.dom.window.close();}
 });
 
-test('manual page entry and priority fee update the total without altering automatic page counts', async () => {
-  const ui = await dashboard(true, { documentPages: { count: async f => f.name.endsWith('.docx') ? null : 5 } });
+test('shop formats block Office and colour PNG while priority preserves automatic page counts', async () => {
+  const ui = await dashboard(true, { documentPages: { count: async () => 5 } });
   try {
     await ui.add(['essay.docx']); ui.review();
-    assert.equal(ui.$('#pages').readOnly, false); assert.equal(ui.$('#place-order').disabled, true);
-    ui.input('pages', 3); ui.input('copies',2);
-    assert.match(ui.$('#total-price').textContent,/30/); assert.equal(ui.$('#place-order').disabled,false);
-    ui.$('#urgent-order').checked=true;ui.$('#urgent-order').dispatchEvent(new ui.w.Event('change'));
-    assert.match(ui.$('#total-price').textContent,/38/);assert.equal(ui.$('#priority-summary').hidden,false);
-    await ui.add(['notes.pdf']); ui.$('#file-list .file-row:nth-child(2) .file-pick').click();
-    assert.equal(ui.$('#pages').readOnly,true); ui.input('pages',1);assert.match(ui.$('#total-price').textContent,/63/);
-    ui.$('#place-order').click(); await tick();assert.match(ui.$('#orders-list').textContent,/Urgent order/);
-  } finally {ui.dom.window.close();}
+    assert.equal(ui.$('#total-files').textContent, '0'); assert.match(ui.$('#file-feedback').textContent, /PDF and PNG only/);
+    await ui.add(['photo.png']); ui.input('colour', 'colour');
+    assert.equal(ui.$('#place-order').disabled, true); assert.match(ui.$('#summary-error').textContent, /Canon requires PDF/);
+    ui.input('colour', 'bw'); ui.input('copies', 2);
+    assert.equal(ui.$('#pages').readOnly, true); assert.match(ui.$('#total-price').textContent, /50/);
+    ui.$('#urgent-order').checked=true; ui.$('#urgent-order').dispatchEvent(new ui.w.Event('change'));
+    assert.match(ui.$('#total-price').textContent, /58/); assert.equal(ui.$('#place-order').disabled, false);
+    assert.deepEqual(Array.from(ui.$('#size').options, o=>o.value), ['A4']);
+  } finally { ui.dom.window.close(); }
 });
 
 test('server recovery keeps selected files and unlocks ordering after reconnection',async()=>{

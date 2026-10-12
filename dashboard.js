@@ -124,7 +124,7 @@
     if (working) return;
     const errors = [];
     for (const file of incoming) {
-      const error = core.fileError(file);
+      const error = core.shopFileError(file);
       if (error) { errors.push(`${file.name}: ${error}`); continue; }
       if (files.length + selectedTrendingPrintIds.size >= 10) { errors.push('Only 10 print items are allowed per order.'); break; }
       if (files.reduce((sum, item) => sum + item.file.size, 0) + file.size > 100 * 1024 * 1024) { errors.push(`${file.name}: the order would exceed 100 MB.`); continue; }
@@ -172,6 +172,7 @@
     pendingSubmission = null; renderFiles(); updateSummary();
   });
   function totals() {
+    for (const item of files) { const error = core.shopFileError(item.file, item.settings); if (error) throw Error(error); }
     const total = files.reduce((total, item) => { const result = core.estimate(item.settings, { image: item.image }); ['amount','sheets','printedSides','minutes'].forEach(key => total[key] += result[key]); total.needsQuote ||= result.needsQuote; return total; }, { amount: 0, sheets: 0, printedSides: 0, minutes: 0, needsQuote: false });
     for (const id of selectedTrendingPrintIds) {
       const print = trendingPrints.find(item => item.id === id);
