@@ -28,7 +28,7 @@ function createAgent({origin,pairing,redeem,print}) {
    await print(file,settings(job.settings));
    reply(200,{message:'Submitted to Brother through Windows. Check the physical pages before marking ready. Do not resend if the printer is paused.'});
   }catch(error){
-   const detail=/^(Flatten PDF|Unsupported Brother|Document page count|Home test limit|Invalid page range|Page range exceeds|PNG must|Only PDF)/.test(error.message||'')?error.message:'Printing was not confirmed.';
+   const detail=/^(Flatten PDF|Unsupported Brother|Document page count|Home test limit|Invalid page range|Page range exceeds|PNG conversion failed|PNG must|The image page count|Only PDF)/.test(error.message||'')?error.message:'Printing was not confirmed.';
    reply(409,{error:detail+' Check the Windows queue before any manual reprint; the one-use ticket may already be consumed.'});
    console.error(detail+' Check Windows queue before any manual reprint.');
   }

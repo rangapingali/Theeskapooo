@@ -44,8 +44,14 @@ async function prepare(bytes, name, settings) {
   if (image) {
     if (s.pages !== 1) throw fail('The image page count is incorrect.');
     selected(s.range, 1);
-    const png = await require('sharp')(bytes, { limitInputPixels: 25000000, failOn: 'warning' }).rotate().png().toBuffer();
-    const asset = await out.embedPng(png);
+    // PNG can be embedded directly: do not depend on a native image library
+    // being installed correctly on the operator's Windows laptop.
+    if (bytes.length < 24 || !bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])) || bytes.toString('ascii',12,16) !== 'IHDR') throw fail('PNG conversion failed: the file is not a valid PNG.');
+    const width = bytes.readUInt32BE(16), height = bytes.readUInt32BE(20);
+    if (!width || !height || width * height > 25000000) throw fail('PNG conversion failed: image must contain at most 25 million pixels.');
+    let asset;
+    try { asset = await out.embedPng(bytes); }
+    catch { throw fail('PNG conversion failed: the image is damaged or unsupported. Export it as a new PNG and try again.'); }
     for (let i = 0; i < s.copies; i++) sources.push({ asset, rotation: 0 });
   } else {
     let input;
