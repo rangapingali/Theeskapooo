@@ -43,6 +43,17 @@ test('tickets enforce operator, payment, own-order and offline checks and cannot
  let payload;const redemption={body:{id,index:0},get:()=> 'Bearer '+issued.ticket};
  await api.redeem(redemption,{json:value=>payload=value});await assert.rejects(api.issue(req,{json:()=>{}}),/already has/);assert.equal(payload.settings.pages,5);assert.equal(Buffer.from(payload.bytes,'base64').length,bytes.length);
  await assert.rejects(api.redeem(redemption,{json:()=>{}}),/already used/);
+ await assert.rejects(api.recover(req,{json:()=>{}}),/Confirm/);
+ const recovery={...req,body:{queueEmpty:true,nothingPrinted:true,helperRestarted:true}};
+ await assert.rejects(api.recover({...recovery,student:{...req.student,email:'student@kitsw.ac.in'}},{json:()=>{}}),/Operator/);
+ await assert.rejects(api.recover(recovery,{json:()=>{}}),/five minutes/);
+ records.get('brotherTestJobs/'+id+'-0').claimedMs=Date.now()-310000;
+ await api.recover(recovery,{json:()=>{}});
+ assert.equal(records.get('brotherTestJobs/'+id+'-0').state,'released');
+ await assert.rejects(api.redeem(redemption,{json:()=>{}}),/already used/);
+ await api.issue(req,{json:value=>issued=value});
+ assert.equal(records.get('brotherTestJobs/'+id+'-0').state,'issued');
+
 });
 test('loopback agent rejects unpaired origins/keys and invokes printing with trusted settings only',async()=>{
  let prints=0;const bytes=await sample(),origin='https://test.example';

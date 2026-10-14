@@ -128,6 +128,7 @@ window.OrderService = (() => {
   const post = (path, body) => request(path, { method: 'POST', body: JSON.stringify(body) });
   return {
     configuration, upload, pay, download, openForPrint, preparePrintShare,
+    recoverBrother: (id,index) => post('/operator/orders/' + encodeURIComponent(id) + '/brother/' + index + '/recover', {queueEmpty:true,nothingPrinted:true,helperRestarted:true}),
     mobilePrint: (id, index, printer, studentPresent) => post('/operator/orders/' + encodeURIComponent(id) + '/mobile-print/' + index, { printer, studentPresent }),
     brotherPrint: async (id, index, pairing, studentPresent) => {
       const retryable = message => Object.assign(Error(message), { safeToRetry: true });

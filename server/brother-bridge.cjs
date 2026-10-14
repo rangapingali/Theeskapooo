@@ -19,6 +19,21 @@ module.exports = function bridge(deps) {
     return {order:db.collection(paymentConfig.ordersCollection).doc(id),job:db.collection('brotherTestJobs').doc(id+'-'+index)};
   }
   return {
+    async recover(req,res) {
+      if(!enabled())throw fail(404,'Brother test bridge is disabled.');
+      if(!require('./manual-payments.cjs').isOperator(req.student,env.PRINT_OPERATOR_EMAILS))throw fail(403,'Operator access required.');
+      if(req.body?.queueEmpty!==true||req.body?.nothingPrinted!==true||req.body?.helperRestarted!==true)throw fail(400,'Confirm the helper was restarted, the Windows queue is empty and no pages printed.');
+      const {id,index}=req.params,r=refs(id,index);
+      await db.runTransaction(async tx=>{
+        const order=(await tx.get(r.order)).data(),job=(await tx.get(r.job)).data();
+        eligible(order,index);
+        if(order.uid===req.student.uid)throw fail(403,'Another operator must recover your order.');
+        if(!job||job.state!=='claimed')throw fail(409,'There is no claimed request to recover. Refresh the page.');
+        if(Date.now()-(job.claimedMs||job.createdMs||Date.now())<300000)throw fail(409,'Wait five minutes after the last submission before recovery, then check the queue again.');
+        tx.update(r.job,{state:'released',hash:'',expires:0,recoveredMs:Date.now(),recoveredBy:req.student.uid});
+      });
+      res.json({message:'Stuck request released. No print was sent. You can now retry this order.'});
+    },
     async issue(req,res) {
       if(!enabled())throw fail(404,'Brother test bridge is disabled.');
       if(!require('./manual-payments.cjs').isOperator(req.student,env.PRINT_OPERATOR_EMAILS))throw fail(403,'Operator access required.');
@@ -29,7 +44,7 @@ module.exports = function bridge(deps) {
         if(order.uid===req.student.uid)throw fail(403,'Another operator must print your order.');
         if(order.paymentPreference==='offline'&&req.body.studentPresent!==true)throw fail(409,'Confirm the student is present.');
         if(prior && (prior.state==='claimed'||(prior.expires>Date.now()&&prior.actor!==req.student.uid)))throw fail(409,'This file already has a print request. Check the laptop/spooler before any reprint; automatic retries are blocked.');
-        tx.set(r.job,{hash:hash(ticket),expires:Date.now()+120000,state:'issued',actor:req.student.uid,createdMs:Date.now()});
+        tx.set(r.job,{hash:hash(ticket),expires:Date.now()+120000,state:'issued',actor:req.student.uid,createdMs:Date.now(),recoveredMs:prior?.recoveredMs||null,recoveredBy:prior?.recoveredBy||null});
       });
       res.json({id,index:Number(index),ticket});
     },

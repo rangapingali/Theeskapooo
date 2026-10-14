@@ -103,6 +103,7 @@ app.use('/api', async (req, res, next) => {
 require('./manual-routes.cjs')(app, { db, bucket, paymentConfig, publicOrder, FieldValue, env: process.env });
 require('./payment-drafts.cjs')(app, { db, paymentConfig, publicOrder, env: process.env });
 app.post('/api/operator/orders/:id/brother/:index', brotherBridge.issue);
+app.post('/api/operator/orders/:id/brother/:index/recover', brotherBridge.recover);
 app.post('/api/operator/orders/:id/mobile-print/:index', mobilePrint.issue);
 app.use('/api/uploads', protection.uploadSlots(2));
 require('./upload-routes.cjs')(app, { db, bucket });
