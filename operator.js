@@ -5,7 +5,7 @@
   const earningsPage = document.body.classList.contains('earnings-dashboard');
   const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value / 100);
   const node = (tag, text, css) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (css) el.className = css; return el; };
-  let declarationMode = false;
+  let declarationMode = false, brotherTestBridge = false, bridgePairing = '';
   let orders = [], actor, allowed = false, busy = false, loading = false, filter = 'all';
   let earningsTimer;
   const unreadOrders = new Set();
@@ -246,7 +246,20 @@
         const image = /\.(jpg|jpeg|png|webp|heic|heif|bmp|gif|tif|tiff)$/i.test(file.name);
         [s.copies + ' copies', s.colour === 'bw' ? 'Black & white' : 'Colour', s.sides === 'double' ? 'Double-sided' : 'Single-sided', s.size, 'Pages: ' + (s.range || 'all (' + s.pages + ')'), (s.orientation || 'portrait'), image ? (s.layout || 1) + ' image' + (s.layout === 1 ? '' : 's') + ' per side' : (s.layout || 1) + ' page' + (s.layout === 1 ? '' : 's') + ' per side'].forEach(label => specs.append(node('span', label)));
         row.append(specs);
-        row.append(node('strong', s.colour === 'colour' ? 'Printer: Canon · Colour · PDF only' : 'Printer: Kyocera TASKalfa MZ3200i · Black & white', 'printer-destination'));
+        if (brotherTestBridge && s.colour === 'bw') {
+          const direct = node('button', 'Print on Brother (test)', 'primary-action');
+          direct.disabled = preview || order.documentsDeleted || !['accepted','printing'].includes(order.status) || !paid(order) || order.uid === actor.uid;
+          direct.addEventListener('click', async () => {
+            if (!bridgePairing) bridgePairing = (window.prompt('Enter the pairing code displayed by the bridge on this laptop. Never paste Firebase or Supabase keys here.') || '').trim();
+            if (!/^[a-f0-9]{48}$/.test(bridgePairing)) { bridgePairing = ''; message('Enter the bridge pairing code to continue.'); return; }
+            const present = order.paymentPreference !== 'offline' || window.confirm('Is this student present at the printer, with their offline ID checked?');
+            if (!present) return;
+            direct.disabled = true; direct.textContent = 'Sending to Brother...';
+            try { const result = await api.brotherPrint(order.id, index, bridgePairing, present); message(result.message); direct.textContent = 'Submitted - check printer'; }
+            catch (error) { message(error.message); direct.textContent = 'Check laptop before retrying'; }
+          }); row.append(direct);
+        }
+        row.append(node('strong', s.colour === 'colour' ? 'Printer: Canon · Colour · PDF only' : brotherTestBridge ? 'Test printer: Brother HL-L2321D · Paired Windows laptop' : 'Printer: Kyocera TASKalfa MZ3200i · Black & white', 'printer-destination'));
         if (/\.(pdf|png)$/i.test(file.name) && navigator.share && navigator.canShare) {
           const share = node('button', 'Prepare phone printing', 'primary-action document-share');
           let send = null;
@@ -340,7 +353,7 @@
         if (!actor?.emailVerified) { $('#operator-banner').textContent = 'Sign in with your verified student account first. Operator access is an extra permission on that same account.'; render(); return; }
         $('#operator-email').textContent = actor.email;
         allowed = (await api.me()).isOperator;
-        if (api.configuration) declarationMode = (await api.configuration()).paymentMode === 'self_declared';
+        if (api.configuration) { const configuration = await api.configuration(); declarationMode = configuration.paymentMode === 'self_declared'; brotherTestBridge = configuration.brotherTestBridge === true; }
         const paymentCount = $('#count-payments');
         if (paymentCount) paymentCount.closest('.panel').hidden = declarationMode;
         const pendingFilter = $('[data-filter=pending]');

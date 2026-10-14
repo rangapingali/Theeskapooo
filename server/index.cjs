@@ -77,8 +77,10 @@ app.post('/api/payment-webhook', express.raw({ type: 'application/json', limit: 
   res.json({ received: true });
 });
 app.use(express.json({ limit: '64kb' }));
+const brotherBridge = require('./brother-bridge.cjs')({ db, bucket, paymentConfig });
+app.post('/api/brother/redeem', brotherBridge.redeem);
 app.get('/healthz', (req, res) => res.status(storageReady ? 200 : 503).json({ status: storageReady ? 'ready' : 'reconnecting' }));
-app.get('/api/config', (req, res) => res.json({ ordersEnabled: ordersEnabled && storageReady, paymentsEnabled: paymentsEnabled && storageReady, serviceUnavailable: ordersEnabled && !storageReady, notificationSound: require('node:fs').existsSync(path.join(root, 'notification-voice.mp3')) ? '/notification-voice.mp3?v=voice-20261011' : null, paymentMode, merchantName, hours: { normal: '09:00-17:30', exam: '08:30-17:30', timezone: 'Asia/Kolkata' } }));
+app.get('/api/config', (req, res) => res.json({ ordersEnabled: ordersEnabled && storageReady, paymentsEnabled: paymentsEnabled && storageReady, serviceUnavailable: ordersEnabled && !storageReady, notificationSound: require('node:fs').existsSync(path.join(root, 'notification-voice.mp3')) ? '/notification-voice.mp3?v=voice-20261011' : null, paymentMode, brotherTestBridge: process.env.BROTHER_TEST_BRIDGE === 'true', merchantName, hours: { normal: '09:00-17:30', exam: '08:30-17:30', timezone: 'Asia/Kolkata' } }));
 const counters = new Map();
 setInterval(() => { const now = Date.now(); for (const [key, value] of counters) if (value.until < now) counters.delete(key); }, 60000).unref();
 app.use('/api', async (req, res, next) => {
@@ -96,6 +98,7 @@ app.use('/api', async (req, res, next) => {
 });
 require('./manual-routes.cjs')(app, { db, bucket, paymentConfig, publicOrder, FieldValue, env: process.env });
 require('./payment-drafts.cjs')(app, { db, paymentConfig, publicOrder, env: process.env });
+app.post('/api/operator/orders/:id/brother/:index', brotherBridge.issue);
 app.use('/api/uploads', protection.uploadSlots(2));
 require('./upload-routes.cjs')(app, { db, bucket });
 require('./shop-settings.cjs').registerShop(app, { db, isOperator: token => require('./manual-payments.cjs').isOperator(token, process.env.PRINT_OPERATOR_EMAILS) });

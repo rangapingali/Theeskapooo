@@ -77,10 +77,10 @@ window.OrderService = (() => {
       widget.open();
     });
   }
-  async function documentBlob(orderId, index) {
+  async function documentBlob(orderId, index, printPreview = false) {
     const user = await window.KitswAuth.current();
     if (!user?.emailVerified) throw Error('Sign in with your operator account first.');
-    const response = await fetch('/api/operator/orders/' + encodeURIComponent(orderId) + '/files/' + index, {
+    const response = await fetch('/api/operator/orders/' + encodeURIComponent(orderId) + '/files/' + index + (printPreview ? '?printPreview=1' : ''), {
       headers: { Authorization: 'Bearer ' + await user.getIdToken() }, cache: 'no-store', signal: AbortSignal.timeout(120000)
     });
     if (!response.ok) throw Error('Document could not be opened. It may have been deleted after collection; refresh the order.');
@@ -96,8 +96,9 @@ window.OrderService = (() => {
     const type = types[name.split('.').pop().toLowerCase()];
     if (!type) throw Error('Use PDF or PNG for mobile printing.');
     if (!navigator.share || !navigator.canShare) throw Error('File sharing is unavailable in this browser. Use Download document and open it in the printer app.');
-    const blob = await documentBlob(orderId, index);
-    const file = new File([blob], name.replace(/[\\/\u0000-\u001f]/g, '_'), { type });
+    const blob = await documentBlob(orderId, index, type !== 'application/pdf');
+    const safeName = name.replace(/[\\/\u0000-\u001f]/g, '_').replace(/\.png$/i, '.pdf');
+    const file = new File([blob], safeName, { type: 'application/pdf' });
     if (!navigator.canShare({ files: [file] })) throw Error('This phone cannot share this file. Use Download document and open it in the printer app.');
     const expires = Date.now() + 120000;
     // Call on a SECOND tap: network fetches can consume Android's transient activation.
@@ -116,18 +117,10 @@ window.OrderService = (() => {
     tab.opener = null;
     tab.document.title = 'Preparing print preview'; tab.document.body.textContent = 'Loading your document…';
     try {
-      const blob = await documentBlob(orderId, index);
+      const blob = await documentBlob(orderId, index, ext !== 'pdf');
       if (tab.closed) return;
-      const url = URL.createObjectURL(new Blob([blob], { type: types[ext] }));
-      if (ext === 'pdf') tab.location.replace(url);
-      else {
-        tab.document.title = name; tab.document.body.replaceChildren();
-        const style = tab.document.createElement('style'); style.textContent = 'body{font:18px system-ui;margin:20px}img{max-width:100%;height:auto;display:block}button{font:inherit;padding:12px;margin-bottom:16px}@media print{button,p{display:none}body{margin:0}}';
-        const info = tab.document.createElement('p'); info.textContent = 'Match copies, paper size, colour and layout to the order before printing.';
-        const button = tab.document.createElement('button'); button.textContent = 'Print document'; button.addEventListener('click', () => tab.print());
-        const img = tab.document.createElement('img'); img.alt = name; img.src = url;
-        tab.document.head.append(style); tab.document.body.append(button, info, img);
-      }
+      const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+      tab.location.replace(url);
       const timer = setInterval(() => { if (tab.closed) { URL.revokeObjectURL(url); clearInterval(timer); } }, 5000);
       window.addEventListener('pagehide', () => { URL.revokeObjectURL(url); clearInterval(timer); }, { once: true });
     } catch (error) { tab.close(); throw error; }
@@ -135,6 +128,13 @@ window.OrderService = (() => {
   const post = (path, body) => request(path, { method: 'POST', body: JSON.stringify(body) });
   return {
     configuration, upload, pay, download, openForPrint, preparePrintShare,
+    brotherPrint: async (id, index, pairing, studentPresent) => {
+      const job = await post('/operator/orders/' + encodeURIComponent(id) + '/brother/' + index, { studentPresent });
+      let response;
+      try { response = await fetch('http://127.0.0.1:4179/print', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Bridge-Key': pairing }, body: JSON.stringify(job), signal: AbortSignal.timeout(180000) }); }
+      catch { throw Error('Bridge connection interrupted. Check the laptop and Windows print queue before retrying; do not print twice.'); }
+      const result = await response.json(); if (!response.ok) throw Error(result.error || 'Bridge did not confirm submission.'); return result;
+    },
     preparePayment: body => post('/payment-drafts', body),
     declarePayment: id => post(`/orders/${encodeURIComponent(id)}/declare-payment`, { paymentDeclared: true }),
     shop: () => request('/shop'),

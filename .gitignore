@@ -23,3 +23,5 @@ video/launch/build/
 video/launch/output/
 video/reveal/build/
 video/reveal/output/
+tmp/pdf-review/
+tmp/bridge-review/

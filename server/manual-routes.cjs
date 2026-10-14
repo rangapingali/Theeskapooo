@@ -119,11 +119,18 @@ module.exports = function manualRoutes(app, deps) {
     }
     res.json({ ok: true, order: publicOrder({ id: ref.id, data: () => updated }) });
   });
-  app.get('/api/operator/orders/:id/files/:index', async (req, res) => {
+  const previewSlot = require('./http-protection.cjs').uploadSlots(1);
+  app.get('/api/operator/orders/:id/files/:index', (req,res,next) => req.query.printPreview === '1' ? previewSlot(req,res,next) : next(), async (req, res) => {
     const s = await refFor(req.params.id).get(); if (!s.exists) throw fail(404, 'Order not found.');
     if (s.data().documentsDeleted || s.data().status === 'collected') throw fail(410, 'Documents are unavailable after the order is handed over.');
     if (!/^\d+$/.test(req.params.index)) throw fail(404, 'Document not found.');
     const file = s.data().files[Number(req.params.index)]; if (!file) throw fail(404, 'Document not found.');
+    if (req.query.printPreview === '1' && /\.(png|jpe?g|webp)$/i.test(file.name)) {
+      const chunks=[];let size=0;
+      for await (const chunk of bucket.file(file.path, { generation: file.generation }).createReadStream()) { size+=chunk.length; if(size>25*1024*1024)throw fail(413,'Image too large.'); chunks.push(chunk); }
+      const pdf=await require('./print-image.cjs').imagePdf(Buffer.concat(chunks),file.settings.orientation);
+      res.set('Content-Type','application/pdf');res.set('Content-Disposition','inline; filename="print.pdf"');return res.send(pdf);
+    }
     res.attachment(file.name); res.set('Content-Type', 'application/octet-stream');
     await pipeline(bucket.file(file.path, { generation: file.generation }).createReadStream(), res);
   });
