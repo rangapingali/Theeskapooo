@@ -28,7 +28,7 @@ module.exports = function bridge(deps) {
         eligible(order,index);
         if(order.uid===req.student.uid)throw fail(403,'Another operator must print your order.');
         if(order.paymentPreference==='offline'&&req.body.studentPresent!==true)throw fail(409,'Confirm the student is present.');
-        if(prior && (prior.state==='claimed'||prior.expires>Date.now()))throw fail(409,'This file already has a print request. Check the laptop/spooler before any reprint; automatic retries are blocked.');
+        if(prior && (prior.state==='claimed'||(prior.expires>Date.now()&&prior.actor!==req.student.uid)))throw fail(409,'This file already has a print request. Check the laptop/spooler before any reprint; automatic retries are blocked.');
         tx.set(r.job,{hash:hash(ticket),expires:Date.now()+120000,state:'issued',actor:req.student.uid,createdMs:Date.now()});
       });
       res.json({id,index:Number(index),ticket});

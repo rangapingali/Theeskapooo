@@ -262,7 +262,13 @@
             if (!present) return;
             direct.disabled = true; direct.textContent = 'Sending to Brother...';
             try { const result = await api.brotherPrint(order.id, index, bridgePairing, present); message(result.message); direct.textContent = 'Submitted - check printer'; }
-            catch (error) { message(error.message); direct.textContent = 'Check laptop before retrying'; }
+            catch (error) {
+              message(error.message);
+              const detail = node('p', error.message, 'print-specs'); detail.setAttribute('role', 'alert'); row.append(detail);
+              if (error.resetPairing) bridgePairing = '';
+              if (error.safeToRetry) { direct.disabled = false; direct.textContent = 'Retry Brother connection'; }
+              else { direct.textContent = 'Print outcome unknown — check Windows queue'; }
+            }
           }); row.append(direct);
         }
         row.append(node('strong', s.colour === 'colour' ? 'Canon G3770 · Canon PRINT · Colour' : brotherTestBridge ? 'Test printer: Brother HL-L2321D · Paired Windows laptop' : 'KYOCERA Print · TASKalfa MZ3200i / 3212i · B&W', 'printer-destination'));

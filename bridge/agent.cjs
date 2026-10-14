@@ -12,6 +12,7 @@ function createAgent({origin,pairing,redeem,print}) {
   if(req.method==='OPTIONS'){res.setHeader('Access-Control-Allow-Methods','POST');res.setHeader('Access-Control-Allow-Headers','Content-Type,X-Bridge-Key');res.setHeader('Access-Control-Allow-Private-Network','true');return reply(200,{});}
   const key=Buffer.from(req.headers['x-bridge-key']||'');const expected=Buffer.from(pairing);
   if(key.length!==expected.length||!crypto.timingSafeEqual(key,expected))return reply(403,{error:'Pairing code does not match. Restart pairing.'});
+  if(req.method==='POST'&&req.url==='/health')return reply(200,{ready:true,busy});
   if(req.method!=='POST'||req.url!=='/print')return reply(404,{error:'Not found.'});
   if(busy)return reply(409,{error:'Bridge is busy. Wait for the current job.'});
   busy=true;let directory;

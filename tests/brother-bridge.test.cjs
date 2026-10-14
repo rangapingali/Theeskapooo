@@ -38,9 +38,10 @@ test('tickets enforce operator, payment, own-order and offline checks and cannot
  await assert.rejects(api.issue({...req,student:{...req.student,uid:'student'}},{json:()=>{}}),/Another operator/);
  order.paymentPreference='offline';await assert.rejects(api.issue(req,{json:()=>{}}),/student is present/);req.body.studentPresent=true;
  await api.issue(req,{json:value=>issued=value});assert.equal(issued.ticket.length,64);
- await assert.rejects(api.issue(req,{json:()=>{}}),/already has/);
+ const oldTicket=issued.ticket; await api.issue(req,{json:value=>issued=value});
+ await assert.rejects(api.redeem({body:{id,index:0},get:()=> 'Bearer '+oldTicket},{json:()=>{}}),/already used/);
  let payload;const redemption={body:{id,index:0},get:()=> 'Bearer '+issued.ticket};
- await api.redeem(redemption,{json:value=>payload=value});assert.equal(payload.settings.pages,5);assert.equal(Buffer.from(payload.bytes,'base64').length,bytes.length);
+ await api.redeem(redemption,{json:value=>payload=value});await assert.rejects(api.issue(req,{json:()=>{}}),/already has/);assert.equal(payload.settings.pages,5);assert.equal(Buffer.from(payload.bytes,'base64').length,bytes.length);
  await assert.rejects(api.redeem(redemption,{json:()=>{}}),/already used/);
 });
 test('loopback agent rejects unpaired origins/keys and invokes printing with trusted settings only',async()=>{
@@ -49,5 +50,5 @@ test('loopback agent rejects unpaired origins/keys and invokes printing with tru
  server.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
  const url='http://127.0.0.1:'+server.address().port+'/print';
  const post=(site,key)=>fetch(url,{method:'POST',headers:{Host:'127.0.0.1:4179',Origin:site,'X-Bridge-Key':key,'Content-Type':'application/json'},body:JSON.stringify({id:'11111111-1111-1111-1111-111111111111',index:0,ticket:'a'.repeat(64)})});
- try{assert.equal((await post('https://evil.example','test-pair')).status,403);assert.equal((await post(origin,'bad')).status,403);assert.equal((await post(origin,'test-pair')).status,200);assert.equal(prints,1);assert.match(settings({...defaults,sides:'double'}),/duplexlong/);}finally{await new Promise(r=>server.close(r));}
+ try{const health=await fetch(url.replace('/print','/health'),{method:'POST',headers:{Origin:origin,'X-Bridge-Key':'test-pair'}});assert.deepEqual(await health.json(),{ready:true,busy:false});assert.equal(prints,0);assert.equal((await post('https://evil.example','test-pair')).status,403);assert.equal((await post(origin,'bad')).status,403);assert.equal((await post(origin,'test-pair')).status,200);assert.equal(prints,1);assert.match(settings({...defaults,sides:'double'}),/duplexlong/);}finally{await new Promise(r=>server.close(r));}
 });
