@@ -268,3 +268,5 @@
   .dashboard .earnings-history-row .order-card-top{gap:6px}
 }
 .prepared-print-settings { display: block; padding: 12px; margin: 10px 0; border: 2px solid #287450; border-radius: 10px; background: #eef9f0; color: #143c2b; font-size: 1.05rem; line-height: 1.6; overflow-wrap: anywhere; }
+.manual-print-options { margin-top: 12px; padding: 10px; border: 1px solid #cbd8cf; border-radius: 10px; }
+.manual-print-options summary { cursor: pointer; font-size: 1rem; font-weight: 700; padding: 8px; }

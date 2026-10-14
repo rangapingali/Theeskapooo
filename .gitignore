@@ -25,3 +25,9 @@ video/reveal/build/
 video/reveal/output/
 tmp/pdf-review/
 tmp/bridge-review/
+tmp/android-tools/
+android-helper/build/
+android-helper/local.properties
+android-helper/private/
+*.jks
+*.keystore

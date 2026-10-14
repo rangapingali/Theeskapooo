@@ -1,0 +1,26 @@
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const {Readable}=require('node:stream'),{PDFDocument}=require('pdf-lib');
+const mobile=require('../server/mobile-print.cjs'),{defaults}=require('../print-core.js');
+test('mobile tickets bind printer, payment, operator and single redemption without marking ready',async()=>{
+ const records=new Map();const db={collection:c=>({doc:id=>({key:c+'/'+id,get:async()=>({data:()=>structuredClone(records.get(c+'/'+id))})})}),runTransaction:async fn=>fn({get:async r=>({data:()=>structuredClone(records.get(r.key))}),set:(r,v)=>records.set(r.key,v),update:(r,v)=>records.set(r.key,{...records.get(r.key),...v})})};
+ const id='11111111-1111-1111-1111-111111111111',pdf=await PDFDocument.create();pdf.addPage();const bytes=await pdf.save();
+ const order={uid:'student',status:'accepted',paymentStatus:'paid',paymentPreference:'online',files:[{name:'notes.pdf',size:bytes.length,path:'private',settings:{...defaults}}]};records.set('orders/'+id,order);
+ const api=mobile({db,bucket:{file:()=>({createReadStream:()=>Readable.from([bytes])})},paymentConfig:{ordersCollection:'orders'},env:{PRINT_OPERATOR_EMAILS:'operator@kitsw.ac.in'}});
+ const req={params:{id,index:0},body:{printer:'kyocera-new'},student:{uid:'operator',email:'operator@kitsw.ac.in',email_verified:true}};let issued;
+ await assert.rejects(api.issue({...req,student:{...req.student,email:'student@kitsw.ac.in'}},{json:()=>{}}),/Operator/);
+ await assert.rejects(api.issue({...req,body:{printer:'canon'}},{json:()=>{}}),/Kyocera/);
+ order.files[0].settings.colour='colour';order.files[0].settings.sides='double';await assert.rejects(api.issue({...req,body:{printer:'canon'}},{json:()=>{}}),/manual paper turning/);order.files[0].settings={...defaults};
+ order.paymentStatus='unpaid';await assert.rejects(api.issue(req,{json:()=>{}}),/paid/);order.paymentStatus='paid';
+ order.paymentPreference='offline';await assert.rejects(api.issue(req,{json:()=>{}}),/present/);req.body.studentPresent=true;
+ await api.issue(req,{json:v=>issued=v});const old=issued.ticket;await api.issue(req,{json:v=>issued=v});
+ await assert.rejects(api.manifest({body:{id,index:0},get:()=> 'Bearer '+old},{}),/expired/);
+ const redeem={body:{id,index:0},get:()=> 'Bearer '+issued.ticket};let manifest;
+ await api.manifest(redeem,{json:v=>manifest=v});assert.equal(manifest.printer,'kyocera-new');
+ order.status='cancelled';await assert.rejects(api.redeem(redeem,{}),/active/);order.status='accepted';
+ let sent;const response={set(){return this;},type(){return this;},send(v){sent=v;}};
+ await api.redeem(redeem,response);assert.equal((await PDFDocument.load(sent)).getPageCount(),1);
+ await assert.rejects(api.redeem(redeem,response),/already used/);
+ await api.result({...redeem,body:{...redeem.body,state:'submitted',jobId:123}},{json:()=>{}});
+ assert.equal(records.get('mobilePrintJobs/'+id+'-0').state,'submitted');assert.equal(records.get('orders/'+id).status,'accepted');
+ await assert.rejects(api.issue(req,{json:()=>{}}),/already exists/);
+});

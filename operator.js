@@ -28,6 +28,10 @@
     try { localStorage.setItem('theeskapooo:operator-seen:' + actor.uid, JSON.stringify([...knownOrders || []].filter(id => !unreadOrders.has(id)).slice(-2000))); } catch {}
   }
   const paid = order => ['paid', 'declared_paid'].includes(order.paymentStatus);
+  function largeJobThreshold(){try{return Math.min(2000,Math.max(1,Number(localStorage.getItem('theeskapooo:large-job-sides'))||20));}catch{return 20;}}
+  function printedSides(settings,image){try{return window.PrintCore.estimate({...window.PrintCore.defaults,...settings},{image}).printedSides;}catch{return settings.pages*settings.copies;}}
+  const thresholdInput=document.querySelector('#large-job-threshold');
+  if(thresholdInput){thresholdInput.value=largeJobThreshold();thresholdInput.addEventListener('change',()=>{const value=Number(thresholdInput.value);if(!Number.isInteger(value)||value<1||value>2000){message('Choose 1–2,000 printed sides.');return;}try{localStorage.setItem('theeskapooo:large-job-sides',String(value));}catch{}render();});}
   const waitingOffline = order => order.paymentPreference === 'offline' && !paid(order);
   const queueTime = order => order.paymentReceivedMs || Date.parse(order.createdAt) || 0;
   function matchesFilter(order) {
@@ -264,12 +268,35 @@
         row.append(node('strong', s.colour === 'colour' ? 'Canon G3770 · Canon PRINT · Colour' : brotherTestBridge ? 'Test printer: Brother HL-L2321D · Paired Windows laptop' : 'KYOCERA Print · TASKalfa MZ3200i / 3212i · B&W', 'printer-destination'));
         const canPrepare = !preview && !order.documentsDeleted && ['accepted','printing','ready'].includes(order.status) && paid(order) && order.uid !== actor.uid && !(order.paymentPreference === 'offline' && order.status === 'accepted');
         if (/\.(pdf|png)$/i.test(file.name)) {
+          const route = node('label','Printer for this document'); const select=node('select');
+          const sideCount=printedSides(s,image);
+          const threshold=largeJobThreshold();
+          const choices=s.colour==='colour'?[['canon','Canon G3770 · Colour']]:[['kyocera-new','MZ3200i · Large jobs'],['kyocera-old','3212i · Small jobs']];
+          choices.forEach(([value,label])=>{const option=node('option',label);option.value=value;select.append(option);});
+          select.value=s.colour==='colour'?'canon':sideCount>=threshold?'kyocera-new':'kyocera-old';route.append(select);row.append(route);
+          const direct=node('button','Print with Android helper','primary-action');
+          direct.disabled=preview||order.documentsDeleted||!paid(order)||order.uid===actor.uid||!['accepted','printing'].includes(order.status)||(s.colour==='colour'&&s.sides==='double');
+          if(s.colour==='colour'&&s.sides==='double')direct.textContent='Colour duplex: use manual options below';
+          let launch=null;select.addEventListener('change',()=>{launch=null;direct.textContent='Print with Android helper';});
+          direct.addEventListener('click',async()=>{
+            if(launch){window.location.href=launch;launch=null;direct.textContent='Check helper / printer';direct.disabled=true;return;}
+            direct.disabled=true;
+            try{
+              if(!/Android/i.test(navigator.userAgent))throw Error('Use the installed THEESKAPOOO Print helper on the shop Android phone. Manual options are below.');
+              const job=await api.mobilePrint(order.id,index,select.value,order.paymentPreference!=='offline'||window.confirm('Is the student present at the printer?'));
+              launch='intent://print?id='+encodeURIComponent(job.id)+'&index='+job.index+'#Intent;scheme=theeskapooo;package=in.techtitans.printbridge;S.ticket='+encodeURIComponent(job.ticket)+';end';
+              direct.textContent='Open helper & print';message('Printer selected. Open the installed helper to send this job. The helper checks every setting before submission.');
+            }catch(error){message(error.message);}finally{direct.disabled=false;}
+          });row.append(direct);
+        }
+        const manual=node('details',undefined,'manual-print-options');manual.append(node('summary','Manual printing / download options'));row.append(manual);
+        if (/\.(pdf|png)$/i.test(file.name)) {
           const instruction = 'For prepared PDF: A4 · 1 copy · All pages · 1 page per side · ' + (s.orientation || 'portrait') + ' · ' + (s.sides === 'double' ? ((s.duplexEdge || 'left-right') === 'left-right' ? 'Duplex: binding left/right' : 'Duplex: binding top/bottom') : 'Single-sided') + (s.colour === 'colour' ? ' · Colour' : ' · B&W');
-          row.append(node('strong', instruction, 'prepared-print-settings'));
-          if (s.colour === 'colour' && s.sides === 'double') row.append(node('span', 'Colour duplex needs a shop check/manual sheet turning; do not assume automatic duplex.', 'manual-page-warning'));
+          manual.append(node('strong', instruction, 'prepared-print-settings'));
+          if (s.colour === 'colour' && s.sides === 'double') row.append(node('span', 'Canon double-sided colour: turn paper over manually. Follow the Canon workflow and check both sides before marking ready.', 'manual-page-warning'));
           const prepared = node('button', '↓ Prepared PDF (settings applied)', 'primary-action'); prepared.disabled = !canPrepare;
           prepared.addEventListener('click', async () => { prepared.disabled = true; prepared.textContent = 'Preparing PDF…'; try { await api.download(order.id, index, 'prepared-print.pdf', true); message(instruction); } catch (error) { message(error.message); } finally { prepared.disabled = !canPrepare; prepared.textContent = '↓ Prepared PDF (settings applied)'; } });
-          row.append(prepared);
+          manual.append(prepared);
         }
         if (/\.(pdf|png)$/i.test(file.name) && navigator.share && navigator.canShare) {
           const share = node('button', 'Prepare phone printing', 'primary-action document-share');
@@ -284,12 +311,12 @@
             } catch (error) { send = null; share.textContent = 'Prepare phone printing'; if (error.name !== 'AbortError') message(error.message); }
             finally { share.disabled = false; }
           });
-          row.append(share);
+          manual.append(share);
         }
         if (file.pageCountSource === 'manual') row.append(node('strong', 'Student-entered page count: ' + s.pages + ' — check the file before printing.', 'manual-page-warning'));
         const download = node('button', preview ? 'Preview file unavailable' : '↓ Download document', 'primary-action document-download'); download.disabled = preview;
         if (order.documentsDeleted || order.status === 'collected') { download.disabled = true; download.textContent = 'File deleted after collection'; }
-        download.addEventListener('click', async () => { download.disabled = true; download.textContent = 'Downloading…'; try { await api.download(order.id, index, file.name); acknowledge(order); card.classList.remove('new-order'); card.querySelector('.new-order-badge')?.remove(); } catch (error) { message(error.message); } finally { download.disabled = false; download.textContent = '↓ Download document'; } }); row.append(download);
+        download.addEventListener('click', async () => { download.disabled = true; download.textContent = 'Downloading…'; try { await api.download(order.id, index, file.name); acknowledge(order); card.classList.remove('new-order'); card.querySelector('.new-order-badge')?.remove(); } catch (error) { message(error.message); } finally { download.disabled = false; download.textContent = '↓ Download document'; } }); manual.append(download);
         if (/\.(pdf|png|jpe?g|webp)$/i.test(file.name)) {
           const print = node('button', 'Preview prepared PDF ↗', 'secondary-action document-print'); print.disabled = /\.(pdf|png)$/i.test(file.name) ? !canPrepare : preview || order.documentsDeleted || order.status === 'collected';
           print.addEventListener('click', async () => {
@@ -297,7 +324,7 @@
             try { await api.openForPrint(order.id, index, file.name); acknowledge(order); card.classList.remove('new-order'); card.querySelector('.new-order-badge')?.remove(); }
             catch (error) { message(error.message); }
             finally { print.disabled = false; print.textContent = 'Preview prepared PDF ↗'; }
-          }); row.append(print);
+          }); manual.append(print);
         }
         card.append(row);
       });

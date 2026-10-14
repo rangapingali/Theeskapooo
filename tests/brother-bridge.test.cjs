@@ -26,7 +26,7 @@ test('layout applies ranges, n-up, copies, A4 landscape and duplex copy boundari
  await assert.rejects(layout(bytes,'test.pdf',{...s,colour:'colour'}),/Unsupported/);
  await assert.rejects(layout(bytes,'test.pdf',{...s,pages:3}),/count changed/);
  const forms=await PDFDocument.load(bytes);forms.getForm().createTextField('name').addToPage(forms.getPage(0));
- await assert.rejects(layout(await forms.save(),'test.pdf',s),/Flatten/);
+ await assert.rejects(layout(await forms.save(),'test.pdf',s),/flatten/i);
 });
 test('tickets enforce operator, payment, own-order and offline checks and cannot be redeemed twice',async()=>{
  const records=new Map(),id='11111111-1111-1111-1111-111111111111';

@@ -1,18 +1,18 @@
-# Brother Windows bridge (test branch only)
+# Brother Windows bridge (optional USB test)
 
-This sends a real uploaded order file and its server-saved settings to the USB Brother HL-L2321D through Windows and SumatraPDF. It is not enabled on main. Physical output has not yet been tested on your friend's laptop.
+This sends a real uploaded order file and its server-saved settings to the USB Brother HL-L2321D through Windows and SumatraPDF. It is available on main but disabled unless BROTHER_TEST_BRIDGE=true. Physical output has not yet been tested on your friend's laptop.
 
 ## 1. Deploy the branch
 
-Push/use `test/brother-hl-l2321d`. In Render, either create a separate web service on that branch with the existing server environment/secret file, or temporarily select this branch on the existing service for your supervised real-order test. Keep the build/start commands unchanged (`npm ci --omit=dev`, `node server/index.cjs`). Set **BROTHER_TEST_BRIDGE=true** and deploy. A separate service needs its hostname added to Firebase Authentication's authorised domains. This uses real orders and existing payment behaviour; no test payment is invented. Do not share service-account or Supabase secrets with the friend.
+Use the latest `main` for the shared layout engine and settings. The earlier `test/brother-hl-l2321d` branch is preserved as a historical test snapshot. In Render, either create a separate web service on that branch with the existing server environment/secret file, or temporarily select this branch on the existing service for your supervised real-order test. Keep the build/start commands unchanged (`npm ci --omit=dev`, `node server/index.cjs`). Set **BROTHER_TEST_BRIDGE=true** and deploy. A separate service needs its hostname added to Firebase Authentication's authorised domains. This uses real orders and existing payment behaviour; no test payment is invented. Do not share service-account or Supabase secrets with the friend.
 
-The main service remains unchanged until you change its branch. This repository change alone cannot configure Render.
+Keep Render on main; enabling the environment flag adds the optional Brother test control. This repository change alone cannot configure Render.
 
 ## 2. Prepare the friend's Windows laptop
 
 1. Install the official Brother driver, connect USB, load A4 and print a Windows test page. Note the exact printer name from `Get-Printer` (normally `Brother HL-L2321D series`).
 2. Install Node.js 22 or 24 and current stable [SumatraPDF](https://www.sumatrapdfreader.org/free-pdf-reader). Both are free. Sumatra is installed separately, not bundled with this code.
-3. Download/clone this branch. In its project folder run `npm ci --omit=dev`.
+3. Download/clone the latest main branch. In its project folder run `npm ci --omit=dev`.
 4. Run the following in PowerShell, replacing the URL and executable path with your actual deployment and installation:
 
 ```powershell
@@ -25,7 +25,7 @@ The execution-policy setting applies only to this process; it does not change th
 
 1. Upload a small B&W A4 PDF/PNG from a student account and place the order. Use a different authorised operator account on the friend's laptop. Payments keep their existing flow.
 2. In the operator page click **Print on Brother (test)** on the document. Enter the bridge pairing code once per page session. Allow browser local-network access if prompted. For an offline order, confirm that the student is present.
-3. The saved range, copies, orientation and 1/2/4 pages-per-side are prepared into an A4 PDF with printable margins. PNG copies are tiled according to the same image pricing layout; PDF copies are collated, with blank duplex backs between copies where needed. Sumatra receives one copy of that prepared document, monochrome, A4, fit, and simplex or long-edge duplex.
+3. The saved range, copies, orientation and 1/2/4 pages-per-side are prepared into an A4 PDF with printable margins. PNG copies are tiled according to the same image pricing layout; PDF copies use the selected complete-set/grouped-sheet order, with blank duplex backs between copies where needed. Sumatra receives one copy of that prepared document, monochrome, A4, fit, and simplex or the selected long/short-edge duplex (mapped from orientation and turning direction).
 4. Check Windows' queue and the physical output. Success means submission through the printing program, not confirmed paper delivery. Mark printing/ready/handed over manually as before.
 
 The ordinary **Open & print** path also wraps PNG/JPEG/WebP in a one-page fitted A4 PDF. This removes the HTML printing path that could add filename headers or split tall images. It does not remove filenames/watermarks already inside the original document. For ordinary PDF viewing, choose Fit rather than Actual size if the source extends beyond printable margins.
@@ -38,6 +38,6 @@ The ordinary **Open & print** path also wraps PNG/JPEG/WebP in a one-page fitted
 - A claimed job is never automatically retried, including after timeouts or crashes. On any error, inspect the queue and output first. For this pilot use the existing Download/Open & print path for a supervised manual reprint after confirming no duplicate. Unclaimed tickets expire after two minutes.
 - Temporary prepared PDFs are removed after the print process exits; a crash/power loss can leave a `theeskapooo-print-*` folder in Windows TEMP. Delete those after checking the queue. Windows spool files are managed by Windows.
 - The bridge only works in the browser on the USB-connected Windows laptop. A phone cannot reach that laptop's `127.0.0.1`. Current Chrome/Edge may request local-network permission.
-- Stop with Ctrl+C. To remove the experiment, disable `BROTHER_TEST_BRIDGE` and deploy `main` again. No Brother changes are merged into main, and no printer status is automatically set to Ready.
+- Stop with Ctrl+C. To remove the experiment, disable `BROTHER_TEST_BRIDGE` and redeploy. The helper stays inactive, and no printer status is automatically set to Ready.
 
 Reference: [Sumatra command-line printing options](https://www.sumatrapdfreader.org/docs/Command-line-arguments).

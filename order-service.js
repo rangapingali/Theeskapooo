@@ -128,6 +128,7 @@ window.OrderService = (() => {
   const post = (path, body) => request(path, { method: 'POST', body: JSON.stringify(body) });
   return {
     configuration, upload, pay, download, openForPrint, preparePrintShare,
+    mobilePrint: (id, index, printer, studentPresent) => post('/operator/orders/' + encodeURIComponent(id) + '/mobile-print/' + index, { printer, studentPresent }),
     brotherPrint: async (id, index, pairing, studentPresent) => {
       const job = await post('/operator/orders/' + encodeURIComponent(id) + '/brother/' + index, { studentPresent });
       let response;

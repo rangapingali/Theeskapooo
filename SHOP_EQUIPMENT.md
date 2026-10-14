@@ -41,6 +41,8 @@ The original download is the manual fallback. PDFs with annotations/forms are re
 
 ## What remains for one-tap printing
 
+Update: a supervised native Android IPP helper has now been built; see [android-helper/README.md](android-helper/README.md). It transfers supported settings directly to the printer, not into the vendor app UI. Device testing remains required. Canon duplex is confirmed manual and is excluded from automatic submission.
+
 This is **not silent Android printing**. File sharing passes a PDF, not a documented vendor settings command. Device-level colour, duplex and printer selection remain in the receiving app. The cloud cannot reach the shop's private LAN. No guessed intents, exposed printer ports or embedded printer/admin credentials are used.
 
 A native/local integration needs capability discovery and job-status handling tested on the shop network. Photos do not establish an enabled print protocol or its acceptance of these settings. No claim of spooler completion, duplex correctness or physical quality can be made without a supervised print.
