@@ -26,6 +26,21 @@ async function dashboard(preview = true, service = {}) {
   };
 }
 
+test('shop settings show relevant duplex/copy options and survive step changes', async () => {
+  const ui = await dashboard();
+  try {
+    await ui.add(['notes.pdf']);
+    assert.equal(ui.$('#duplex-edge-label').hidden, true);
+    assert.equal(ui.$('#collate-label').hidden, true);
+    ui.input('sides','double'); ui.input('duplexEdge','top-bottom'); ui.input('copies','2'); ui.input('collate','off');
+    assert.equal(ui.$('#duplex-edge-label').hidden, false); assert.equal(ui.$('#collate-label').hidden, false);
+    ui.$('[data-checkout-step="3"]').click(); ui.$('[data-checkout-step="2"]').click();
+    assert.equal(ui.$('#duplexEdge').value,'top-bottom'); assert.equal(ui.$('#collate').value,'off');
+    assert.equal(ui.$('#total-price').textContent.includes('50'),true);
+    assert.equal(ui.$('#size').options.length,1);
+  } finally { ui.dom.window.close(); }
+});
+
 test('payment-first checkout creates nothing before Done and safely retries the same order', async () => {
   let calls = [], fail = true, saved = [];
   const ui = await dashboard(false, {

@@ -20,7 +20,7 @@ function validateOrder(body, uid) {
     paths.add(file.path); bytes += file.size;
     const s = file.settings;
     if (!s || typeof s.range !== 'string' || s.range.length > 200) throw Error('Invalid page range.');
-    const settings = Object.fromEntries(Object.keys(core.defaults).map(key => [key, s[key]]));
+    const settings = Object.fromEntries(Object.keys(core.defaults).map(key => [key, ['duplexEdge','collate'].includes(key) && s[key] === undefined ? core.defaults[key] : s[key]]));
     const shopError = core.shopFileError(file, settings); if (shopError) throw Error(shopError);
     const result = core.estimate(settings, { image: core.isImageFile(file.name) });
     ['amount','sheets','printedSides','minutes'].forEach(key => estimate[key] += result[key]);

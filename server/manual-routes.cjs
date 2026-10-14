@@ -120,11 +120,21 @@ module.exports = function manualRoutes(app, deps) {
     res.json({ ok: true, order: publicOrder({ id: ref.id, data: () => updated }) });
   });
   const previewSlot = require('./http-protection.cjs').uploadSlots(1);
-  app.get('/api/operator/orders/:id/files/:index', (req,res,next) => req.query.printPreview === '1' ? previewSlot(req,res,next) : next(), async (req, res) => {
+  app.get('/api/operator/orders/:id/files/:index', (req,res,next) => req.query.printPreview === '1' || req.query.prepared === '1' ? previewSlot(req,res,next) : next(), async (req, res) => {
     const s = await refFor(req.params.id).get(); if (!s.exists) throw fail(404, 'Order not found.');
     if (s.data().documentsDeleted || s.data().status === 'collected') throw fail(410, 'Documents are unavailable after the order is handed over.');
     if (!/^\d+$/.test(req.params.index)) throw fail(404, 'Document not found.');
     const file = s.data().files[Number(req.params.index)]; if (!file) throw fail(404, 'Document not found.');
+    if (req.query.prepared === '1') {
+      const order = s.data();
+      if (!['accepted','printing','ready'].includes(order.status) || !['paid','declared_paid'].includes(order.paymentStatus)) throw fail(409, 'Prepare printing only for an active paid order.');
+      if (order.uid === req.student.uid) throw fail(403, 'Another operator must print your own order.');
+      if (order.paymentPreference === 'offline' && order.status === 'accepted') throw fail(409, 'Confirm the student is present and mark printing first.');
+      const chunks = []; let size = 0;
+      for await (const chunk of bucket.file(file.path, { generation: file.generation }).createReadStream()) { size += chunk.length; if (size > 25*1024*1024) throw fail(413, 'Document too large.'); chunks.push(chunk); }
+      const pdf = await require('./shop-print-pdf.cjs').prepare(Buffer.concat(chunks), file.name, file.settings);
+      res.set('Cache-Control','no-store'); res.set('Content-Type','application/pdf'); res.set('Content-Disposition','inline; filename="prepared-print.pdf"'); return res.send(pdf);
+    }
     if (req.query.printPreview === '1' && /\.(png|jpe?g|webp)$/i.test(file.name)) {
       const chunks=[];let size=0;
       for await (const chunk of bucket.file(file.path, { generation: file.generation }).createReadStream()) { size+=chunk.length; if(size>25*1024*1024)throw fail(413,'Image too large.'); chunks.push(chunk); }

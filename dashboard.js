@@ -3,7 +3,7 @@
   const core = window.PrintCore;
   const demo = new URLSearchParams(location.search).get('preview') === '1';
   const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value);
-  const fields = ['copies','pages','colour','sides','size','orientation','range','layout','binding'];
+  const fields = ['copies','pages','colour','sides','size','orientation','range','layout','binding','duplexEdge','collate'];
   let files = [], selected = null, orders = [], filter = 'all', user = null, trendingPrints = [], selectedTrendingPrintIds = new Set();
   let shopAccepting = null;
   let config = { ordersEnabled: false, paymentsEnabled: false }, working = false, previewURL = null, paymentOrder = null;
@@ -77,11 +77,16 @@
     const item = files.find(file => file.id === selected);
     for (const key of fields.filter(key => key !== 'pages' || item.manualPages)) item.settings[key] = ['copies','pages','layout'].includes(key) ? Number($('#' + key).value) : $('#' + key).value;
     pendingSubmission = null;
+    showRelevantSettings(item);
     updateSummary();
+  }
+  function showRelevantSettings(item) {
+    $('#duplex-edge-label').hidden = item?.settings.sides !== 'double';
+    $('#collate-label').hidden = !item || item.image || item.settings.copies < 2;
   }
   fields.forEach(key => {
     $('#' + key).addEventListener('input', readSettings);
-    if (['colour','sides','size','orientation','layout','binding'].includes(key)) $('#' + key).addEventListener('change', readSettings);
+    if (['colour','sides','size','orientation','layout','binding','duplexEdge','collate'].includes(key)) $('#' + key).addEventListener('change', readSettings);
   });
   function chooseFile(id) {
     selected = id;
@@ -90,7 +95,8 @@
     $('#settings-empty').hidden = Boolean(item);
     $('#selected-name').textContent = item?.file.name || 'No file selected';
     if (item) {
-      fields.forEach(key => { $('#' + key).value = item.settings[key]; });
+      fields.forEach(key => { $('#' + key).value = item.settings[key] ?? core.defaults[key]; });
+      showRelevantSettings(item);
       $('#layout-label').firstChild.textContent = item.image ? 'Images per printed side' : 'Pages per printed side';
       [...$('#layout').options].forEach(option => { const count = Number(option.value); option.textContent = item.image ? `${count} image${count === 1 ? '' : 's'} per side` : `${count} page${count === 1 ? '' : 's'} per side`; });
       $('#pages').readOnly = !item.manualPages;

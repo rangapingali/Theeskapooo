@@ -1,4 +1,6 @@
-# Shop printing setup — 12 October 2026
+# Historical shop printing setup — 12 October 2026
+
+**Superseded by [SHOP_EQUIPMENT.md](SHOP_EQUIPMENT.md), based on the 14 October shop visit. Use that document for current printer models, versions and prepared-PDF instructions.**
 
 ## Confirmed shop information and app behaviour
 

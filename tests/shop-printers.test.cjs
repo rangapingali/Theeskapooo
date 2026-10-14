@@ -9,6 +9,8 @@ test('shop policy enforces PDF/PNG, colour PDF and A4 independently of browser c
  const order={id,shop:'campus',paymentPreference:'online',notes:'',pickupTime:null,files:[]};
  const make=(ext,settings={})=>({...order,files:[{name:'notes.'+ext,size:10,path:`student-uploads/u/${id}/${fileId}.${ext}`,settings:{...core.defaults,...settings}}]});
  assert.equal(validateOrder(make('pdf'),'u').estimate.amount,5);
+ const legacy=make('pdf');delete legacy.files[0].settings.duplexEdge;delete legacy.files[0].settings.collate;
+ assert.equal(validateOrder(legacy,'u').files[0].settings.collate,'on');
  assert.equal(validateOrder(make('pdf',{colour:'colour'}),'u').estimate.amount,10);
  assert.equal(validateOrder(make('png'),'u').estimate.amount,5);
  assert.throws(()=>validateOrder(make('png',{colour:'colour'}),'u'),/Canon requires PDF/);
@@ -26,9 +28,10 @@ test('phone print handoff requires an authenticated fetch and a separate share g
  try{
   const send=await w.OrderService.preparePrintShare('order',0,'notes.pdf');
   assert.equal(shares.length,0);assert.equal(requests[0].options.headers.Authorization,'Bearer test-token');
-  await send();assert.equal(shares.length,1);assert.equal(shares[0].files[0].name,'notes.pdf');assert.equal(requests.length,1);
+  await send();assert.equal(shares.length,1);assert.equal(shares[0].files[0].name,'prepared-notes.pdf');assert.equal(requests.length,1);assert.match(requests[0].url,/prepared=1$/);
   await assert.rejects(w.OrderService.preparePrintShare('order',0,'notes.docx'),/PDF or PNG/);
   w.navigator.canShare=()=>false;await assert.rejects(w.OrderService.preparePrintShare('order',0,'notes.pdf'),/Download document/);
-  w.fetch=async()=>({ok:false});await assert.rejects(w.OrderService.preparePrintShare('order',0,'notes.pdf'),/could not be opened/);
+  w.fetch=async()=>({ok:false,json:async()=>null});await assert.rejects(w.OrderService.preparePrintShare('order',0,'notes.pdf'),/could not be opened/);
+  w.fetch=async()=>({ok:false,json:async()=>({error:'Flatten this PDF first.'})});await assert.rejects(w.OrderService.preparePrintShare('order',0,'notes.pdf'),/Flatten/);
  }finally{w.close();}
 });

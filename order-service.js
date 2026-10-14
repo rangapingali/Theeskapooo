@@ -77,17 +77,17 @@ window.OrderService = (() => {
       widget.open();
     });
   }
-  async function documentBlob(orderId, index, printPreview = false) {
+  async function documentBlob(orderId, index, printPreview = false, prepared = false) {
     const user = await window.KitswAuth.current();
     if (!user?.emailVerified) throw Error('Sign in with your operator account first.');
-    const response = await fetch('/api/operator/orders/' + encodeURIComponent(orderId) + '/files/' + index + (printPreview ? '?printPreview=1' : ''), {
+    const response = await fetch('/api/operator/orders/' + encodeURIComponent(orderId) + '/files/' + index + (prepared ? '?prepared=1' : printPreview ? '?printPreview=1' : ''), {
       headers: { Authorization: 'Bearer ' + await user.getIdToken() }, cache: 'no-store', signal: AbortSignal.timeout(120000)
     });
-    if (!response.ok) throw Error('Document could not be opened. It may have been deleted after collection; refresh the order.');
+    if (!response.ok) { const data = await response.json().catch(() => null); throw Error(data?.error || 'Document could not be opened. It may have been deleted after collection; refresh the order.'); }
     return response.blob();
   }
-  async function download(orderId, index, name) {
-    const url = URL.createObjectURL(await documentBlob(orderId, index));
+  async function download(orderId, index, name, prepared = false) {
+    const url = URL.createObjectURL(await documentBlob(orderId, index, false, prepared));
     const link = document.createElement('a'); link.href = url; link.download = name; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
@@ -96,8 +96,8 @@ window.OrderService = (() => {
     const type = types[name.split('.').pop().toLowerCase()];
     if (!type) throw Error('Use PDF or PNG for mobile printing.');
     if (!navigator.share || !navigator.canShare) throw Error('File sharing is unavailable in this browser. Use Download document and open it in the printer app.');
-    const blob = await documentBlob(orderId, index, type !== 'application/pdf');
-    const safeName = name.replace(/[\\/\u0000-\u001f]/g, '_').replace(/\.png$/i, '.pdf');
+    const blob = await documentBlob(orderId, index, false, true);
+    const safeName = 'prepared-' + name.replace(/[\\/\u0000-\u001f]/g, '_').replace(/\.png$/i, '.pdf');
     const file = new File([blob], safeName, { type: 'application/pdf' });
     if (!navigator.canShare({ files: [file] })) throw Error('This phone cannot share this file. Use Download document and open it in the printer app.');
     const expires = Date.now() + 120000;
@@ -117,7 +117,7 @@ window.OrderService = (() => {
     tab.opener = null;
     tab.document.title = 'Preparing print preview'; tab.document.body.textContent = 'Loading your document…';
     try {
-      const blob = await documentBlob(orderId, index, ext !== 'pdf');
+      const blob = await documentBlob(orderId, index, ext !== 'pdf', ['pdf','png'].includes(ext));
       if (tab.closed) return;
       const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
       tab.location.replace(url);

@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8"><link rel="icon" type="image/svg+xml" href="theeskapooo-icon.svg"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#214f3c"><link rel="manifest" href="manifest.webmanifest"><title>Student dashboard · THEESKAPOOO</title>
-  <link rel="stylesheet" href="styles.css?v=mobile-security-20261011"><link rel="stylesheet" href="dashboard.css?v=mobile-security-20261011">
+  <link rel="stylesheet" href="styles.css?v=mobile-security-20261011"><link rel="stylesheet" href="dashboard.css?v=shop-prepared-20261014">
   <script src="pwa.js" defer></script>
   <script src="firebase-config.js" defer></script><script src="auth-service.js" defer></script>
-  <script src="document-pages.js?v=checkout-recovery-8" defer></script><script src="print-core.js?v=shop-printers-20261012" defer></script><script src="order-service.js?v=shop-printers-20261012" defer></script><script src="order-alerts.js?v=flow-20261011" defer></script><script src="dashboard.js?v=shop-printers-20261012" defer></script>
+  <script src="document-pages.js?v=checkout-recovery-8" defer></script><script src="print-core.js?v=shop-prepared-20261014" defer></script><script src="order-service.js?v=shop-prepared-20261014" defer></script><script src="order-alerts.js?v=flow-20261011" defer></script><script src="dashboard.js?v=shop-prepared-20261014" defer></script>
 </head>
 <body class="dashboard">
   <aside class="sidebar">
@@ -44,7 +44,9 @@
                 <label>Orientation<select id="orientation"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></label>
                 <label class="wide-field">Page range<input id="range" placeholder="All pages, or e.g. 1-5, 8, 11-13" maxlength="200"><small>Leave blank for all pages; duplicates count once.</small></label>
                 <label id="layout-label">Pages per printed side<select id="layout"><option value="1">1 page per side</option><option value="2">2 pages per side</option><option value="4">4 pages per side</option></select></label>
-                <label>Finishing (per copy)<select id="binding"><option value="none">No binding</option></select></label>
+                <label id="duplex-edge-label">Turn pages at<select id="duplexEdge"><option value="left-right">Left / right (book)</option><option value="top-bottom">Top / bottom (notepad)</option></select></label>
+                <label id="collate-label">Copy order<select id="collate"><option value="on">Complete sets (1,2,3 · 1,2,3)</option><option value="off">Group matching sheets</option></select></label>
+                <input id="binding" type="hidden" value="none">
               </div><button type="button" id="apply-all" class="quiet">Apply these settings to all files</button><p class="microcopy">Page counts and ranges stay individual to each file.</p>
             </fieldset>
           </section>
@@ -58,7 +60,7 @@
         </div><div class="step-actions"><button type="button" id="step-back" class="secondary-action" hidden>← Back</button><span id="step-total" aria-live="polite"></span><button type="button" id="step-next" class="primary-action">Print settings →</button></div>
       </section>
       <section id="orders-view" hidden aria-labelledby="orders-title"><div class="page-heading"><div><p class="eyebrow">YOUR CAMPUS PRINT TRAIL</p><h1 id="orders-title">My orders</h1><p>Your orders and collection codes in one place.</p></div><button class="secondary-action" id="refresh-orders">Refresh orders</button></div><div class="order-filters" aria-label="Filter orders"><button data-filter="all" aria-pressed="true">Active orders</button><button data-filter="active" aria-pressed="false">Order placed</button><button data-filter="ready" aria-pressed="false">Ready to collect</button><button data-filter="completed" aria-pressed="false">History</button></div><p id="orders-message" role="status" class="inline-message" hidden></p><div id="orders-list"></div></section>
-      <section id="guide-view" hidden aria-labelledby="guide-title"><div class="page-heading"><div><p class="eyebrow">A BETTER PRINT, EVERY TIME</p><h1 id="guide-title">Before you hit print.</h1></div></div><div class="guide-grid"><article class="panel"><h2>Keep your layout intact</h2><p>Upload PDF or PNG for black &amp; white; colour requires PDF. Export Word, PowerPoint and other files to PDF before uploading.</p></article><article class="panel"><h2>Shop rates</h2><p>Digital prints: &#8377;5 per B&amp;W side; &#8377;10 per colour side. The shop's &#8377;2 photocopy rate is for physical originals at the counter. A4 only until other sizes are confirmed.</p><h2>Know your page count</h2><p>PDF and PNG pages are counted automatically. Page ranges and copies affect your price.</p></article><article class="panel"><h2>Pay your way</h2><p id="payment-guide">Pay at the counter or online. Pending payment is not successful payment.</p></article><article class="panel"><h2>Collect when it’s ready</h2><p>Wait for “Ready to collect” and show your order reference. Queue time is not included in estimates.</p></article></div></section>
+      <section id="guide-view" hidden aria-labelledby="guide-title"><div class="page-heading"><div><p class="eyebrow">A BETTER PRINT, EVERY TIME</p><h1 id="guide-title">Before you hit print.</h1></div></div><div class="guide-grid"><article class="panel"><h2>Keep your layout intact</h2><p>Upload PDF or PNG for black &amp; white; colour requires PDF. Export Word, PowerPoint and other files to PDF before uploading.</p></article><article class="panel"><h2>Shop rates</h2><p>Digital prints: &#8377;5 per B&amp;W side; &#8377;10 per colour side. The shop's &#8377;2 photocopy rate is for physical originals at the counter. A4 paper only.</p><h2>Know your page count</h2><p>PDF and PNG pages are counted automatically. Page ranges and copies affect your price.</p></article><article class="panel"><h2>Pay your way</h2><p id="payment-guide">Pay at the counter or online. Pending payment is not successful payment.</p></article><article class="panel"><h2>Collect when it’s ready</h2><p>Wait for “Ready to collect” and show your order reference. Queue time is not included in estimates.</p></article></div></section>
       <footer class="dashboard-footer"><span>© 2026 THEESKAPOOO</span><span>Built for students, one page at a time.</span><a href="https://www.kitsw.ac.in/" target="_blank" rel="noopener noreferrer">College website ↗</a></footer>
     </main>
   </div>

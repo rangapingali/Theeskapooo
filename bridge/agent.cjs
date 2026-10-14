@@ -2,7 +2,7 @@ const http=require('node:http'),crypto=require('node:crypto'),fs=require('node:f
 const {execFile}=require('node:child_process');
 const {promisify}=require('node:util');const run=promisify(execFile);
 const {layout}=require('./layout.cjs');
-function settings(s){return ['paper=A4','monochrome','1x','fit',s.sides==='double'?'duplexlong':'simplex'].join(',');}
+function settings(s){const longEdge=((s.duplexEdge||'left-right')==='left-right')===(s.orientation!=='landscape');return ['paper=A4','monochrome','1x','fit',s.sides==='double'?(longEdge?'duplexlong':'duplexshort'):'simplex'].join(',');}
 function createAgent({origin,pairing,redeem,print}) {
  let busy=false;
  const server=http.createServer(async(req,res)=>{

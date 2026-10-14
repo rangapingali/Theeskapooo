@@ -8,6 +8,7 @@ function selected(range,total){
  }return [...result].sort((a,b)=>a-b);
 }
 async function layout(bytes,name,s){
+ if(s.collate==='off')throw Error('Grouped copies are unavailable in the Brother test; use complete sets.');
  if(s.colour!=='bw'||s.size!=='A4'||!['single','double'].includes(s.sides)||!['portrait','landscape'].includes(s.orientation)||![1,2,4].includes(s.layout)||!Number.isInteger(s.copies)||s.copies<1||s.copies>20)throw Error('Unsupported Brother test settings.');
  const out=await PDFDocument.create();let sources=[],image=false;
  if(/\.pdf$/i.test(name)){
