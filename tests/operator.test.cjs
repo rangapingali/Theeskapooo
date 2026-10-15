@@ -315,3 +315,11 @@ test('paid priority wins, payment time breaks ties, offline visits stay separate
     assert.equal(d.querySelector('[data-order-id="urgent-first"] .new-order-badge'),null);
   } finally {dom.window.close();}
 });
+
+test('operator search combines collection slot and number without losing orders',async()=>{
+ const dom=new JSDOM(fs.readFileSync(path.join(root,'operator.html'),'utf8'),{url:'http://localhost/operator.html',runScripts:'outside-only'});
+ const orders=[1,2].map(n=>({id:'order'+n,uid:'student',email:'student@kitsw.ac.in',status:'accepted',paymentStatus:'paid',files:[],quoteAmountPaise:500,collectionSlot:{slot:n,number:7,date:'2026-10-15',startHour:9,endHour:10}}));
+ dom.window.KitswAuth={current:async()=>({uid:'operator',email:'operator@kitsw.ac.in',emailVerified:true})};
+ dom.window.OrderService={me:async()=>({isOperator:true}),configuration:async()=>({paymentMode:'self_declared'}),shop:async()=>({acceptingOrders:true}),operatorOrders:async()=>({orders})};
+ try{dom.window.eval(fs.readFileSync(path.join(root,'operator.js'),'utf8'));await tick();const d=dom.window.document;d.querySelector('#queue-slot').value='2';d.querySelector('#queue-number').value='7';d.querySelector('#queue-slot').dispatchEvent(new dom.window.Event('input'));assert.equal(d.querySelectorAll('.order-card').length,1);assert.equal(d.querySelector('.order-card').dataset.orderId,'order2');d.querySelector('#queue-clear').click();assert.equal(d.querySelectorAll('.order-card').length,2);}finally{dom.window.close();}
+});

@@ -2,6 +2,7 @@
 window.KitswAuth = (() => {
   let connection;
   const isCollegeEmail = email => /^[^\s@]+@kitsw\.ac\.in$/i.test(email || '');
+  const isStaffEmail = email => (email || '').trim().toLowerCase() === 'rangapingali@gmail.com';
   const configured = () => ['apiKey', 'authDomain', 'projectId', 'appId'].every(key =>
     typeof window.KITSW_FIREBASE_CONFIG?.[key] === 'string' && window.KITSW_FIREBASE_CONFIG[key].trim());
   async function connect() {
@@ -20,13 +21,13 @@ window.KitswAuth = (() => {
     return connection;
   }
   function requireCollegeEmail(email) {
-    if (!isCollegeEmail(email)) throw { code: 'app/college-email' };
+    if (!isCollegeEmail(email) && !isStaffEmail(email)) throw { code: 'app/college-email' };
   }
   return {
-    configured, isCollegeEmail,
+    configured, isCollegeEmail, isStaffEmail,
     async current() {
       const { auth, sdk } = await connect();
-      if (auth.currentUser && !isCollegeEmail(auth.currentUser.email)) {
+      if (auth.currentUser && !isCollegeEmail(auth.currentUser.email) && !isStaffEmail(auth.currentUser.email)) {
         await sdk.signOut(auth);
         return null;
       }

@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 function fail(message) { throw Object.assign(new Error(message), { httpStatus: 409 }); }
 function isOperator(token, emails = '') {
   const allowed = emails.split(',').map(email => email.trim().toLowerCase()).filter(Boolean);
-  return token?.email_verified === true && allowed.includes((token.email || '').toLowerCase());
+  return !require('./access-roles.cjs').isRetiredOperator(token) && token?.email_verified === true && (require('./access-roles.cjs').isAdmin(token) || allowed.includes((token.email || '').toLowerCase()));
 }
 function checkPayable(order) {
   if (order.offlineNumber) fail('This offline order is paid at the counter during your payment appointment.');

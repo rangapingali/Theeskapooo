@@ -11,7 +11,7 @@ module.exports = function manualRoutes(app, deps) {
   const refFor = id => { if (!idPattern.test(id)) throw fail(404, 'Order not found.'); return db.collection(paymentConfig.ordersCollection).doc(id); };
   const owned = (snapshot, uid) => { if (!snapshot.exists || snapshot.data().uid !== uid) throw fail(404, 'Order not found.'); return snapshot.data(); };
   const audit = (tx, ref, actor, action, extra = {}) => tx.create((ref.childCollection ? ref.childCollection('audit') : ref.collection('audit')).doc(), { actorUid: actor.uid, action, ...extra, at: FieldValue.serverTimestamp() });
-  app.get('/api/me', (req, res) => res.json({ isOperator: operator(req.student) }));
+  app.get('/api/me', (req, res) => res.json({ isOperator: operator(req.student), isAdmin: require('./access-roles.cjs').isAdmin(req.student, env) }));
   app.post('/api/orders/:id/manual-instructions', async (req, res) => {
     manualEnabled(); const ref = refFor(req.params.id); let info;
     await db.runTransaction(async tx => {

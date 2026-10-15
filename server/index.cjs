@@ -93,13 +93,14 @@ app.use('/api', async (req, res, next) => {
   const header = req.get('authorization') || '';
   if (!header.startsWith('Bearer ') || header.length > 8192) throw failure(401, 'Please sign in again.');
   let token; try { token = await adminAuth.verifyIdToken(header.slice(7), true); } catch { throw failure(401, 'Your session is invalid or expired. Please sign in again.'); }
-  if (!token.email_verified || !/^[^\s@]+@kitsw\.ac\.in$/i.test(token.email || '')) throw failure(403, 'A verified KITSW college email is required.');
+  if (!token.email_verified || (!/^[^\s@]+@kitsw\.ac\.in$/i.test(token.email || '') && !require('./access-roles.cjs').isStaff(token))) throw failure(403, 'A verified KITSW college email is required.');
   const now = Date.now(); const counter = counters.get(token.uid) || { count: 0, until: now + 60000 };
   if (counter.until < now) { counter.count = 0; counter.until = now + 60000; }
   counter.count++; counters.set(token.uid, counter);
   if (counter.count > 60) throw failure(429, 'Too many requests. Wait a minute and retry.');
   req.student = token; next();
 });
+require('./admin-routes.cjs')(app, {db,paymentConfig});
 require('./manual-routes.cjs')(app, { db, bucket, paymentConfig, publicOrder, FieldValue, env: process.env });
 require('./payment-drafts.cjs')(app, { db, paymentConfig, publicOrder, env: process.env });
 app.post('/api/operator/orders/:id/brother/:index', brotherBridge.issue);
@@ -157,7 +158,7 @@ app.post('/api/orders/:id/verify-payment', async (req, res) => {
   await markPaid(ref, payment); res.json({ status: 'paid' });
 });
 // Only these public assets are served. Never expose .env, backend code or credentials.
-const publicFiles = ['index.html','college-source.html','dashboard.html','operator.html','earnings.html','operator.js','trending.html','trending.js','manifest.webmanifest','service-worker.js','pwa.js','pwa-icon-192.png','pwa-icon-512.png','styles.css','dashboard.css','app.js','auth-service.js','firebase-config.js','print-core.js','order-service.js','dashboard.js','tech-titans.svg','kitsw-logo.jpg','theeskapooo-logo.svg','theeskapooo-icon.svg','document-pages.js','document-pages-core.js','document-pages-worker.js','order-alerts.js','notification-voice.mp3'];
+const publicFiles = ['staff.html','staff.js','admin.html','admin.js','index.html','college-source.html','dashboard.html','operator.html','earnings.html','operator.js','trending.html','trending.js','manifest.webmanifest','service-worker.js','pwa.js','pwa-icon-192.png','pwa-icon-512.png','styles.css','dashboard.css','app.js','auth-service.js','firebase-config.js','print-core.js','order-service.js','dashboard.js','tech-titans.svg','kitsw-logo.jpg','theeskapooo-logo.svg','theeskapooo-icon.svg','document-pages.js','document-pages-core.js','document-pages-worker.js','order-alerts.js','notification-voice.mp3'];
 app.get('/vendor/pdf-lib.min.js', (req, res) => res.sendFile(path.join(root, 'node_modules/pdf-lib/dist/pdf-lib.min.js')));
 app.get('/', (req, res) => res.sendFile(path.join(root, 'index.html')));
 for (const file of publicFiles) app.get('/' + file, (req, res) => res.sendFile(path.join(root, file)));

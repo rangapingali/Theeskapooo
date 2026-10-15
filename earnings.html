@@ -8,18 +8,18 @@
   <link rel="manifest" href="manifest.webmanifest">
   <title>Daily earnings · THEESKAPOOO</title>
   <link rel="stylesheet" href="styles.css?v=mobile-security-20261011">
-  <link rel="stylesheet" href="dashboard.css?v=brother-recovery-20261014">
+  <link rel="stylesheet" href="dashboard.css?v=roles-20261015">
   <script src="pwa.js" defer></script>
   <script src="firebase-config.js" defer></script>
-  <script src="auth-service.js" defer></script>
-  <script src="order-service.js?v=brother-recovery-20261014" defer></script>
-  <script src="print-core.js?v=shop-prepared-20261014" defer></script><script src="operator.js?v=brother-recovery-20261014" defer></script>
+  <script src="auth-service.js?v=roles-20261015" defer></script>
+  <script src="order-service.js?v=roles-20261015" defer></script>
+  <script src="print-core.js?v=shop-prepared-20261014" defer></script><script src="operator.js?v=roles-20261015" defer></script>
 </head>
 <body class="dashboard shop-dashboard earnings-dashboard">
   <aside class="sidebar">
     <a class="brand product-brand" href="index.html" aria-label="THEESKAPOOO home"><img class="product-logo" src="theeskapooo-logo.svg" width="460" height="112" alt="THEESKAPOOO - Print. Pick up. Pooo!"></a>
-    <span class="nav-caption">YOUR TWO WORKSPACES</span>
-    <nav>
+    <span class="nav-caption">YOUR WORKSPACES</span>
+    <nav><a id="operator-admin-link" class="nav-item" href="admin.html" hidden>Admin dashboard</a><a class="nav-item" href="staff.html">Account / sign out</a>
       <a class="nav-item" href="operator.html"><span class="nav-label">Orders &amp; payments</span></a>
       <a class="nav-item active" href="earnings.html" aria-current="page"><span class="nav-label">Daily earnings</span></a>
       <a class="nav-item" href="trending.html"><span class="nav-label">Trending prints</span></a>

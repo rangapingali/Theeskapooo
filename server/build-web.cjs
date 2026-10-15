@@ -8,7 +8,8 @@ if (path.dirname(output) !== root || path.basename(output) !== 'dist') throw Err
 if (fs.existsSync(output) && (fs.lstatSync(output).isSymbolicLink() || fs.realpathSync(output) !== output)) throw Error('Build directory must not be a link');
 fs.rmSync(output, { recursive: true, force: true });
 fs.mkdirSync(path.join(output, 'vendor'), { recursive: true });
-const publicFiles = [
+const publicFiles = ['staff.html','staff.js',
+  'admin.html', 'admin.js',
   'index.html', 'college-source.html', 'dashboard.html', 'operator.html', 'earnings.html', 'trending.html',
   'manifest.webmanifest', 'service-worker.js', 'pwa.js', 'pwa-icon-192.png', 'pwa-icon-512.png',
   'styles.css', 'dashboard.css', 'app.js', 'auth-service.js', 'firebase-config.js',

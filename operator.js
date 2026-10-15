@@ -210,7 +210,13 @@
     $('#count-active').textContent = active.length;
     $('#count-payments').textContent = active.filter(o => o.paymentStatus === 'pending_verification').length;
     $('#count-ready').textContent = active.filter(o => o.status === 'ready').length;
-    const selected = orders.filter(matchesFilter);
+    const query = ($('#queue-search')?.value || '').trim().toLowerCase();
+    const slot = $('#queue-slot')?.value, number = $('#queue-number')?.value, date = $('#queue-date')?.value;
+    const selected = orders.filter(matchesFilter).filter(order => {
+      const text = [order.id,order.email,...(order.files||[]).map(f=>f.name)].join(' ').toLowerCase();
+      return (!query || text.includes(query)) && (!slot || Number(order.collectionSlot?.slot)===Number(slot)) && (!number || Number(order.offlineNumber||order.collectionSlot?.number)===Number(number)) && (!date || (order.collectionSlot?.date||order.paymentAppointment?.date||indiaDateKey(new Date(order.createdAt)))===date);
+    });
+    if ($('#queue-result-count')) $('#queue-result-count').textContent = selected.length + ' orders shown';
     if (!selected.length) { list.append(node('div', allowed ? 'No orders in this queue.' : 'Operator access is required to view orders.', 'panel empty-orders')); return; }
     selected.sort((a,b) => filter === 'history'
       ? (b.closedMs || Date.parse(b.createdAt) || 0) - (a.closedMs || Date.parse(a.createdAt) || 0)
@@ -391,6 +397,8 @@
     editing = false;
     await (allowed ? load(true) : start());
   });
+  ['#queue-search','#queue-slot','#queue-number','#queue-date'].forEach(id=>$(id)?.addEventListener('input',()=>render()));
+  $('#queue-clear')?.addEventListener('click',()=>{['#queue-search','#queue-slot','#queue-number','#queue-date'].forEach(id=>$(id).value='');render();});
   document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => { if (busy) return; setFilter(button.dataset.filter); render(); }));
   async function start() {
     if (preview) {
@@ -405,7 +413,8 @@
         actor = await window.KitswAuth.current();
         if (!actor?.emailVerified) { $('#operator-banner').textContent = 'Sign in with your verified student account first. Operator access is an extra permission on that same account.'; render(); return; }
         $('#operator-email').textContent = actor.email;
-        allowed = (await api.me()).isOperator;
+        const access = await api.me(); allowed = access.isOperator;
+        const adminLink=document.getElementById('operator-admin-link');if(adminLink)adminLink.hidden=!access.isAdmin;
         if (api.configuration) { const configuration = await api.configuration(); declarationMode = configuration.paymentMode === 'self_declared'; brotherTestBridge = configuration.brotherTestBridge === true; }
         const paymentCount = $('#count-payments');
         if (paymentCount) paymentCount.closest('.panel').hidden = declarationMode;

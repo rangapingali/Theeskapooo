@@ -565,11 +565,12 @@
     updateSummary();
   }
   async function refreshAccess() {
-    let allowed = false;
+    let allowed = false, admin = false;
     if (config.ordersEnabled && window.OrderService.me) {
-      try { allowed = (await window.OrderService.me()).isOperator === true; } catch {}
+      try { const access = await window.OrderService.me(); allowed = access.isOperator === true; admin = access.isAdmin === true; } catch {}
     }
     $('#operator-link').hidden = !allowed; $('#operator-nav').hidden = !allowed;
+    let adminLink=document.getElementById('admin-nav'); if(!adminLink){adminLink=document.createElement('a');adminLink.id='admin-nav';adminLink.href='admin.html';adminLink.className='nav-item';adminLink.textContent='Admin dashboard';$('#operator-nav').after(adminLink);}adminLink.hidden=!admin;
   }
   function appointmentLabel(a) {
     return 'Pay at the shop: ' + a.date + ' ? ' + a.time + ' IST. Pay by ' + new Date(a.deadlineMs).toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour:'numeric',minute:'2-digit'}) + ' IST to avoid cancellation.';
