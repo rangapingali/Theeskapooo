@@ -9,7 +9,7 @@ function securityHeaders(req, res, next) {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com", "img-src 'self' data: blob:" + provider,
       "media-src 'self' blob:", "worker-src 'self'", "frame-src 'self' blob: https://*.firebaseapp.com" + provider,
-      "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://*.firebaseapp.com" + provider + (process.env.BROTHER_TEST_BRIDGE === 'true' ? ' http://127.0.0.1:4179' : ''),
+      "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://*.firebaseapp.com" + provider,
       "form-action 'self'" + provider
     ].join('; '),
     'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',

@@ -47,7 +47,7 @@ This is **not silent Android printing**. File sharing passes a PDF, not a docume
 
 A native/local integration needs capability discovery and job-status handling tested on the shop network. Photos do not establish an enabled print protocol or its acceptance of these settings. No claim of spooler completion, duplex correctness or physical quality can be made without a supervised print.
 
-The Windows Brother test helper remains separately gated by `BROTHER_TEST_BRIDGE=true`; **leave it unset/false for the shop**. See [bridge/README.md](bridge/README.md). It does not run on Android.
+The home-printer test integration has been retired. Only the shop Android helper and manual printing options are available.
 
 ## On-site acceptance
 

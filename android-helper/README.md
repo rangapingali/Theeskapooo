@@ -21,7 +21,6 @@ Page range, copies, collating/grouping, orientation and 1/2/4-up are embedded in
 
 Canon G3770 compatibility is **not proven**. Supporting Canon PRINT/AirPrint does not establish native PDF-over-IPP support. A PDF-only helper cannot print to a raster-only endpoint. The app detects this and refuses instead of guessing or sending unreadable data. A raster/vendor adapter may be needed after capability results are obtained. Kyocera support also requires on-site verification of enabled IPP, URI and accepted attributes.
 
-The Brother HL-L2321D is USB-only and uses the separate [Windows helper](../bridge/README.md). It cannot be tested through Android network IPP without an additional print server.
 
 ## Safety design and limitations
 

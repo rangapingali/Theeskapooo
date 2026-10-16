@@ -128,25 +128,7 @@ window.OrderService = (() => {
   const post = (path, body) => request(path, { method: 'POST', body: JSON.stringify(body) });
   return {
     configuration, upload, pay, download, openForPrint, preparePrintShare,
-    recoverBrother: (id,index) => post('/operator/orders/' + encodeURIComponent(id) + '/brother/' + index + '/recover', {queueEmpty:true,nothingPrinted:true,helperRestarted:true}),
     mobilePrint: (id, index, printer, studentPresent) => post('/operator/orders/' + encodeURIComponent(id) + '/mobile-print/' + index, { printer, studentPresent }),
-    brotherPrint: async (id, index, pairing, studentPresent) => {
-      const retryable = message => Object.assign(Error(message), { safeToRetry: true });
-      let health;
-      try { health = await fetch('http://127.0.0.1:4179/health', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Bridge-Key': pairing }, body: '{}', signal: AbortSignal.timeout(8000) }); }
-      catch { throw retryable('Cannot reach the Brother helper. On this same USB-connected Windows laptop, open bridge/Start-Brother-Test.cmd and keep it running. Allow local-network access in Chrome/Edge, then retry. No print was sent by this attempt.'); }
-      const state = await health.json().catch(() => ({}));
-      if (health.status === 403) throw Object.assign(retryable('Pairing code does not match. Enter the current code from the helper window.'), { resetPairing: true });
-      if (!health.ok || state.ready !== true) throw retryable('Update the Brother helper from the latest GitHub ZIP and restart Start-Brother-Test.cmd. No print was sent by this attempt.');
-      if (state.busy) throw retryable('The laptop is processing another print. Wait for it to finish, then retry.');
-      let job;
-      try { job = await post('/operator/orders/' + encodeURIComponent(id) + '/brother/' + index, { studentPresent }); }
-      catch (error) { error.safeToRetry = true; throw error; }
-      let response;
-      try { response = await fetch('http://127.0.0.1:4179/print', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Bridge-Key': pairing }, body: JSON.stringify(job), signal: AbortSignal.timeout(180000) }); }
-      catch { throw Error('Bridge connection interrupted. Check the laptop and Windows print queue before retrying; do not print twice.'); }
-      const result = await response.json(); if (!response.ok) throw Error(result.error || 'Bridge did not confirm submission.'); return result;
-    },
     preparePayment: body => post('/payment-drafts', body),
     declarePayment: id => post(`/orders/${encodeURIComponent(id)}/declare-payment`, { paymentDeclared: true }),
     shop: () => request('/shop'),

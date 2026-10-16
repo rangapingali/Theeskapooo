@@ -5,7 +5,7 @@
   const earningsPage = document.body.classList.contains('earnings-dashboard');
   const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value / 100);
   const node = (tag, text, css) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (css) el.className = css; return el; };
-  let declarationMode = false, brotherTestBridge = false, bridgePairing = '';
+  let declarationMode = false;
   let orders = [], actor, allowed = false, busy = false, loading = false, filter = 'all';
   let earningsTimer;
   const unreadOrders = new Set();
@@ -258,35 +258,7 @@
         if (s.sides === 'double') specs.append(node('span', (s.duplexEdge || 'left-right') === 'left-right' ? 'Turn left / right' : 'Turn top / bottom'));
         if (s.copies > 1 && !image) specs.append(node('span', s.collate === 'off' ? 'Group matching sheets' : 'Complete sets'));
         row.append(specs);
-        if (brotherTestBridge && s.colour === 'bw') {
-          const direct = node('button', 'Print on Brother (test)', 'primary-action');
-          const recover = node('button', 'Recover stuck Brother request', 'secondary-action'); recover.hidden = true;
-          recover.addEventListener('click', async () => {
-            if (!window.confirm('Only recover if NO pages printed. Stop and restart the laptop helper, check that Sumatra is no longer sending the old job, and confirm the Brother Windows queue is empty. Have you completed all these checks?')) return;
-            recover.disabled = true;
-            try { const result = await api.recoverBrother(order.id,index); message(result.message); bridgePairing = ''; recover.hidden = true; direct.disabled = false; direct.textContent = 'Print on Brother (test)'; }
-            catch (error) { message(error.message); }
-            finally { recover.disabled = false; }
-          });
-          direct.disabled = preview || order.documentsDeleted || !['accepted','printing'].includes(order.status) || !paid(order) || order.uid === actor.uid;
-          direct.addEventListener('click', async () => {
-            if (!bridgePairing) bridgePairing = (window.prompt('Enter the pairing code displayed by the bridge on this laptop. Never paste Firebase or Supabase keys here.') || '').trim();
-            if (!/^[a-f0-9]{48}$/.test(bridgePairing)) { bridgePairing = ''; message('Enter the bridge pairing code to continue.'); return; }
-            const present = order.paymentPreference !== 'offline' || window.confirm('Is this student present at the printer, with their offline ID checked?');
-            if (!present) return;
-            direct.disabled = true; direct.textContent = 'Sending to Brother...';
-            try { const result = await api.brotherPrint(order.id, index, bridgePairing, present); message(result.message); direct.textContent = 'Submitted - check printer'; }
-            catch (error) {
-              message(error.message);
-              recover.hidden = !/already has a print request|one-use ticket|connection interrupted/i.test(error.message);
-              const detail = node('p', error.message, 'print-specs'); detail.setAttribute('role', 'alert'); row.append(detail);
-              if (error.resetPairing) bridgePairing = '';
-              if (error.safeToRetry) { direct.disabled = false; direct.textContent = 'Retry Brother connection'; }
-              else { direct.textContent = 'Print outcome unknown — check Windows queue'; }
-            }
-          }); row.append(direct,recover);
-        }
-        row.append(node('strong', s.colour === 'colour' ? 'Canon G3770 · Canon PRINT · Colour' : brotherTestBridge ? 'Test printer: Brother HL-L2321D · Paired Windows laptop' : 'KYOCERA Print · TASKalfa MZ3200i / 3212i · B&W', 'printer-destination'));
+        row.append(node('strong', s.colour === 'colour' ? 'Canon G3770 · Canon PRINT · Colour' : 'KYOCERA Print · TASKalfa MZ3200i / 3212i · B&W', 'printer-destination'));
         const canPrepare = !preview && !order.documentsDeleted && ['accepted','printing','ready'].includes(order.status) && paid(order) && order.uid !== actor.uid && !(order.paymentPreference === 'offline' && order.status === 'accepted');
         if (/\.(pdf|png)$/i.test(file.name)) {
           const route = node('label','Printer for this document'); const select=node('select');
@@ -414,7 +386,7 @@
         $('#operator-email').textContent = actor.email;
         const access = await api.me(); allowed = access.isOperator;
         const adminLink=document.getElementById('operator-admin-link');if(adminLink)adminLink.hidden=!access.isAdmin;
-        if (api.configuration) { const configuration = await api.configuration(); declarationMode = configuration.paymentMode === 'self_declared'; brotherTestBridge = configuration.brotherTestBridge === true; }
+        if (api.configuration) { const configuration = await api.configuration(); declarationMode = configuration.paymentMode === 'self_declared'; }
         const paymentCount = $('#count-payments');
         if (paymentCount) paymentCount.closest('.panel').hidden = declarationMode;
         const pendingFilter = $('[data-filter=pending]');
