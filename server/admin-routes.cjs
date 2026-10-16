@@ -4,7 +4,7 @@ module.exports=function(app,{db,paymentConfig,env=process.env}){
  app.use('/api/admin',(req,res,next)=>isAdmin(req.student,env)?next():next(fail(403,'Administrator access required.')));
  app.get('/api/admin/overview',async(req,res)=>{
   const [orders,shop]=await Promise.all([db.collection(paymentConfig.ordersCollection).orderBy('createdAt','desc').get(),db.collection('settings').doc('shop').get()]);
-  const rows=orders.docs.map(doc=>{const o=doc.data();return {id:doc.id,email:o.email||'',status:o.status,paymentStatus:o.paymentStatus,paymentPreference:o.paymentPreference,amountPaise:o.quoteAmountPaise||0,paymentReceivedMs:o.paymentReceivedMs||null,priority:o.priority===true,slot:o.collectionSlot||null,offlineNumber:o.offlineNumber||null,createdAt:o.createdAt?.toDate?.().toISOString()||null,documentsDeleted:o.documentsDeleted===true};});
+  const rows=orders.docs.map(doc=>{const o=doc.data();return {id:doc.id,email:o.email||'',status:o.status,paymentStatus:o.paymentStatus,paymentReconciliationRequired:o.paymentReconciliationRequired===true,paymentPreference:o.paymentPreference,amountPaise:o.quoteAmountPaise||0,paymentReceivedMs:o.paymentReceivedMs||null,priority:o.priority===true,slot:o.collectionSlot||null,offlineNumber:o.offlineNumber||null,createdAt:o.createdAt?.toDate?.().toISOString()||null,documentsDeleted:o.documentsDeleted===true};});
   res.json({orders:rows,acceptingOrders:shop.data()?.acceptingOrders!==false,paymentMode:paymentConfig.mode,operatorEmails:((env.PRINT_OPERATOR_EMAILS||'')+','+(env.PRINT_ADMIN_EMAILS||'rangapingali@gmail.com')).split(',').map(s=>s.trim()).filter(s=>s&&s.toLowerCase()!=='b25ai163@kitsw.ac.in')});
  });
  app.post('/api/admin/shop',async(req,res)=>{

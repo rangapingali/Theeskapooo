@@ -106,6 +106,7 @@ module.exports = function manualRoutes(app, deps) {
       if (order.uid === req.student.uid) throw fail(403, 'Ask another operator to handle your own order.');
       if (req.body.status === 'printing' && order.paymentPreference === 'offline' && req.body.studentPresent !== true) throw fail(409,'Offline documents can only be printed while the student is present.');
       if (req.body.status === 'printing' && (order.files || []).some(file => file.pageCountSource === 'manual') && req.body.pagesChecked !== true) throw fail(409, 'Check the student-entered page counts before printing.');
+      if (['printing','ready','collected'].includes(req.body.status)) require('./payment-security.cjs').requireVerifiedPrintPayment(order,paymentConfig.mode);
       const patch = logic.statusPatch(order, req.body.status);
       if (['collected', 'cancelled'].includes(patch.status)) patch.closedMs = Date.now();
       if (patch.closedMs) await require('./offline-numbers.cjs').releaseOfflineNumber(tx,db,order,ref.id,paymentConfig.ordersCollection);
@@ -122,6 +123,7 @@ module.exports = function manualRoutes(app, deps) {
   const previewSlot = require('./http-protection.cjs').uploadSlots(1);
   app.get('/api/operator/orders/:id/files/:index', (req,res,next) => req.query.printPreview === '1' || req.query.prepared === '1' ? previewSlot(req,res,next) : next(), async (req, res) => {
     const s = await refFor(req.params.id).get(); if (!s.exists) throw fail(404, 'Order not found.');
+    require('./payment-security.cjs').requireVerifiedPrintPayment(s.data(),paymentConfig.mode);
     if (s.data().documentsDeleted || s.data().status === 'collected') throw fail(410, 'Documents are unavailable after the order is handed over.');
     if (!/^\d+$/.test(req.params.index)) throw fail(404, 'Document not found.');
     const file = s.data().files[Number(req.params.index)]; if (!file) throw fail(404, 'Document not found.');

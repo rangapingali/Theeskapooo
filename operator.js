@@ -406,12 +406,11 @@
       actor = { uid: 'preview-operator' }; allowed = true;
       $('#operator-email').textContent = 'Operator preview';
       $('#operator-banner').textContent = 'PREVIEW ONLY - approvals change this in-memory example. No real payments or student data.';
-      $('#student-workspace').href = $('#header-student-link').href = 'dashboard.html?preview=1';
       orders = [{ id: 'PREVIEW-1042', uid: 'preview-student', email: 'Example student', status: 'ready', paymentStatus: 'pending_verification', reviewStatus: 'approved', lockedAmountPaise: 6000, quoteAmountPaise: 6000, notes: '', manualPayment: { claimId: 'preview-claim', amountPaise: 6000, reference: 'DEMO12345678', payee: { name: 'Example recipient', upiId: 'example-only' } }, files: [{ name: 'Example assignment.pdf', settings: { copies: 1, pages: 12, colour: 'bw', sides: 'double', size: 'A4', range: '' } }] }];
     } else {
       try {
         actor = await window.KitswAuth.current();
-        if (!actor?.emailVerified) { $('#operator-banner').textContent = 'Sign in with your verified student account first. Operator access is an extra permission on that same account.'; render(); return; }
+        if (!actor?.emailVerified) { $('#operator-banner').textContent = 'Sign in through Shop / Admin with your verified staff account.'; render(); return; }
         $('#operator-email').textContent = actor.email;
         const access = await api.me(); allowed = access.isOperator;
         const adminLink=document.getElementById('operator-admin-link');if(adminLink)adminLink.hidden=!access.isAdmin;
@@ -422,7 +421,7 @@
         if (pendingFilter) pendingFilter.hidden = declarationMode;
         if (declarationMode) { $('.sidebar-note strong').textContent = 'Print. Prepare. Hand over.'; $('.sidebar-note p').textContent = 'Students confirm payment before new orders arrive. Declared paid means student-confirmed, not bank-verified. No payment approval step is needed.'; }
         $('#operator-banner').hidden = allowed;
-        $('#operator-banner').textContent = allowed ? 'Operator workspace - your student account remains available using the Student dashboard link.' : 'Your student account is active, but operator access has not been assigned.';
+        $('#operator-banner').textContent = allowed ? 'Shop workspace ready.' : 'Your student account is active, but operator access has not been assigned.';
       } catch (error) { $('#operator-banner').textContent = error.message || 'Operator service unavailable. Server setup is required.'; }
     }
     try { await load(); } catch (error) { message(error.message); } render();

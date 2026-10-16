@@ -50,15 +50,21 @@ function publicOrder(snapshot) {
   return { id: snapshot.id, offlineNumber: order.offlineNumber || null, paymentAppointment: order.paymentAppointment || null, cancellationReason: order.cancellationReason || '', paymentReceivedMs, priority: order.priority === true, priorityFeePaise: order.priorityFeePaise || 0, collectionSlot: order.collectionSlot || null, documentsDeleted: order.documentsDeleted === true, files: (order.files || []).map(({ path: ignored, generation: ignoredGeneration, ...file }) => file), trendingPrints: (order.trendingPrints || []).map(({ id, title, pricePaise }) => ({ id, title, pricePaise })), estimate: order.estimate, status: order.status, paymentStatus: order.paymentStatus, paymentPreference: order.paymentPreference, quoteAmountPaise: order.quoteAmountPaise, createdAt: order.createdAt.toDate().toISOString(), pickupTime: order.pickupTime, manualPayment: order.manualPayment ? { ...order.manualPayment, submittedAt: order.manualPayment.submittedAt?.toDate?.().toISOString() || null } : null, paymentMethod: order.paymentMethod || null, paymentReviewNote: order.paymentReviewNote || '' };
 }
 async function markPaid(ref, payment) {
+  if (!/^pay_[a-zA-Z0-9]+$/.test(payment?.id||'')) throw failure(400,'Invalid payment identity.');
   await db.runTransaction(async tx => {
     const snapshot = await tx.get(ref); if (!snapshot.exists) throw failure(404, 'Order not found.');
     const order = snapshot.data();
     assertCaptured(payment, { ...order, quoteAmountPaise: order.lockedAmountPaise });
+    if (order.lockedAmountPaise !== order.quoteAmountPaise) throw failure(409, 'Payment total changed. Reconciliation required.');
     if (order.paymentStatus === 'paid') {
       if (order.paymentId !== payment.id) throw failure(409, 'Another payment already settled this order. Contact the shop.');
       return;
     }
-    tx.update(ref, { paymentStatus: 'paid', paymentId: payment.id, paidAt: FieldValue.serverTimestamp(), paymentReceivedMs: Date.now(), checkoutState: 'paid' });
+    const receiptRef = db.collection(paymentMode === 'test' ? 'testVerifiedPayments' : 'verifiedPayments').doc(payment.id);
+    const receipt = await tx.get(receiptRef);
+    if (receipt.exists && receipt.data().orderId !== ref.id) throw failure(409,'Payment already assigned to another order.');
+    tx.set(receiptRef,{orderId:ref.id,amountPaise:payment.amount,verifiedMs:Date.now()});
+    tx.update(ref, { paymentStatus: 'paid', paymentMethod:'razorpay', paymentVerification:'gateway_api', paymentReconciliationRequired:['cancelled','collected'].includes(order.status), paymentId: payment.id, paidAt: FieldValue.serverTimestamp(), paymentReceivedMs: Date.now(), checkoutState: 'paid' });
   });
 }
 // Raw bytes must be verified before parsing webhook JSON.

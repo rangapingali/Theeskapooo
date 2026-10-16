@@ -2,7 +2,8 @@ const crypto = require('node:crypto');
 const core = require('../print-core.js');
 const fail = (status, message) => Object.assign(new Error(message), { httpStatus: status });
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
-function eligible(order, index) {
+function eligible(order,index,mode) {
+  require('./payment-security.cjs').requireVerifiedPrintPayment(order,mode);
   if (!order || order.documentsDeleted || !['accepted','printing'].includes(order.status) || !['paid','declared_paid'].includes(order.paymentStatus)) throw fail(409,'An active paid order is required.');
   const file = order.files?.[index];
   if (!file || !/\.(pdf|png)$/i.test(file.name)) throw fail(400,'Choose a PDF or PNG.');
@@ -26,7 +27,7 @@ module.exports = function bridge(deps) {
       const {id,index}=req.params,r=refs(id,index);
       await db.runTransaction(async tx=>{
         const order=(await tx.get(r.order)).data(),job=(await tx.get(r.job)).data();
-        eligible(order,index);
+        eligible(order,index,paymentConfig.mode);
         if(order.uid===req.student.uid)throw fail(403,'Another operator must recover your order.');
         if(!job||job.state!=='claimed')throw fail(409,'There is no claimed request to recover. Refresh the page.');
         if(Date.now()-(job.claimedMs||job.createdMs||Date.now())<300000)throw fail(409,'Wait five minutes after the last submission before recovery, then check the queue again.');
@@ -40,7 +41,7 @@ module.exports = function bridge(deps) {
       const {id,index}=req.params, r=refs(id,index),ticket=crypto.randomBytes(32).toString('hex');
       await db.runTransaction(async tx=>{
         const order=(await tx.get(r.order)).data(), prior=(await tx.get(r.job)).data();
-        eligible(order,index);
+        eligible(order,index,paymentConfig.mode);
         if(order.uid===req.student.uid)throw fail(403,'Another operator must print your order.');
         if(order.paymentPreference==='offline'&&req.body.studentPresent!==true)throw fail(409,'Confirm the student is present.');
         if(prior && (prior.state==='claimed'||(prior.expires>Date.now()&&prior.actor!==req.student.uid)))throw fail(409,'This file already has a print request. Check the laptop/spooler before any reprint; automatic retries are blocked.');
@@ -56,7 +57,7 @@ module.exports = function bridge(deps) {
       await db.runTransaction(async tx=>{
         const job=(await tx.get(r.job)).data(),order=(await tx.get(r.order)).data();
         if(!job||job.state!=='issued'||job.expires<Date.now()||job.hash!==hash(ticket))throw fail(409,'Print ticket expired or already used. Check the printer before retrying.');
-        file=eligible(order,index);
+        file=eligible(order,index,paymentConfig.mode);
         tx.update(r.job,{state:'claimed',claimedMs:Date.now()});
       });
       const chunks=[];let size=0;

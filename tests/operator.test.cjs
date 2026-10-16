@@ -32,7 +32,7 @@ test('same-account operator UI denies unassigned access without loading other st
   try {
     dom.window.eval(fs.readFileSync(path.join(root, 'operator.js'), 'utf8')); await tick();
     assert.equal(calls, 0); assert.match(dom.window.document.querySelector('#operator-banner').textContent, /student account is active/);
-    assert.match(dom.window.document.querySelector('#header-student-link').href, /dashboard.html$/);
+    assert.equal(dom.window.document.querySelector('#header-student-link'),null);
   } finally { dom.window.close(); }
 });
 test('operator preview checks amount and labels simulated approval', async () => {
@@ -52,7 +52,7 @@ test('operator preview checks amount and labels simulated approval', async () =>
     assert.match($('#operator-orders').textContent, /No orders/);
     $('[data-filter=history]').click(); assert.match($('#operator-orders').textContent, /Collected/);
     $('#shop-toggle').click(); await tick(); assert.match($('#shop-status').textContent, /Busy/);
-    assert.match($('#student-workspace').href, /preview=1/);
+    assert.equal($('#student-workspace'),null);
   } finally { dom.window.close(); }
 });
 
