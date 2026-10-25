@@ -289,3 +289,24 @@
 @media(max-width:760px){.staff-page .staff-main{padding:24px 16px 32px}.staff-page .panel{padding:20px}.admin-page .admin-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}.admin-actions button{grid-column:1/-1;width:100%}.admin-page .shop-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-page .dashboard-main{padding:20px 16px 32px}.admin-page #shop-toggle{width:100%;white-space:normal}.shop-dashboard .queue-search-fields{grid-template-columns:1fr 1fr}.shop-dashboard .sidebar nav{max-width:100%}.shop-dashboard .nav-item{white-space:normal}.shop-dashboard .order-card>button{width:100%;margin-top:12px}}
 @media(max-width:360px){.admin-page .admin-actions,.admin-page .shop-stats,.shop-dashboard .queue-search-fields{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:760px){.dashboard.shop-dashboard .sidebar nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;gap:8px}.dashboard.shop-dashboard .sidebar .nav-item{width:100%;min-width:0;white-space:normal;box-sizing:border-box;line-height:1.4}.dashboard.shop-dashboard .sidebar .nav-item>span{font-size:16px}.dashboard.shop-dashboard .sidebar .nav-item[hidden]{display:none!important}}
+
+/* Staff navigation stays in document flow so it cannot cover order actions. */
+.dashboard #staff-retry{width:100%;margin:12px 0}
+.dashboard input:focus-visible,.dashboard select:focus-visible,.dashboard textarea:focus-visible{outline:2px solid #376448;outline-offset:2px}
+.dashboard .queue-search input{height:auto;min-height:48px;padding:10px 12px;border:1px solid #aabbad;border-radius:8px}
+@media(max-width:760px){
+ .dashboard.shop-dashboard .sidebar{position:static;inset:auto;width:100%;height:auto;padding:14px 16px;border-bottom:1px solid #dce5d6;box-shadow:none}
+ .dashboard.shop-dashboard .sidebar:after{display:none}
+ .dashboard.shop-dashboard .sidebar .sidebar-team{padding:0}
+ .dashboard.shop-dashboard .sidebar nav{margin:8px 0 0}
+ .dashboard.shop-dashboard .sidebar .nav-item{min-height:48px;padding:10px;font-size:15px}
+ .dashboard.shop-dashboard .sidebar .nav-item>.nav-label{font-size:15px}
+ .dashboard.shop-dashboard .workspace{margin-left:0;width:100%}
+ .dashboard.shop-dashboard .dashboard-main{padding-bottom:32px}
+ .dashboard .queue-search-fields input{max-width:100%;width:100%;min-width:0}
+ .dashboard .shop-controls button{min-width:0}
+ .dashboard .page-heading{flex-wrap:wrap;gap:14px}
+ .dashboard .page-heading h1{font-size:clamp(26px,7vw,34px);overflow-wrap:anywhere}
+ .staff-page h1,.admin-page h1{letter-spacing:-1px}
+}
+@media(max-width:380px){.dashboard.shop-dashboard .shop-stats{grid-template-columns:minmax(0,1fr)}}

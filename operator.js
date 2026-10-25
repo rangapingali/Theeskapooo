@@ -400,6 +400,7 @@
   }
   let shop = null;
   let shopError = '';
+  let savingShop = false;
   async function refreshShop() {
     try {
       if (typeof api.shop !== 'function') throw Error('This page has an older app script. Reload the page with Ctrl + F5.');
@@ -414,16 +415,17 @@
     if (!shop) { $('#shop-status').textContent = 'Shop availability unavailable'; $('#shop-status-detail').textContent = shopError || (allowed ? 'Checking the shop connection. Use Refresh to retry.' : 'Sign in with an authorized shop account to manage availability.'); $('#shop-toggle').disabled = true; $('#shop-toggle').textContent = 'Use Refresh to reconnect'; return; }
     $('#shop-status').textContent = shop.acceptingOrders ? 'Open - accepting orders' : 'Busy - new orders paused';
     $('#shop-toggle').textContent = shop.acceptingOrders ? 'Pause new orders' : 'Resume accepting orders';
-    $('#shop-toggle').disabled = !allowed || busy;
+    $('#shop-toggle').disabled = !allowed || busy || savingShop;
     $('#shop-status-detail').textContent = shop.acceptingOrders ? 'Students can place fixed-price orders now.' : 'Students can track and pay for existing orders, but cannot place new ones.';
   }
   const shopToggle = $('#shop-toggle');
   if (shopToggle) shopToggle.addEventListener('click', async () => {
-    if (!allowed || busy) return;
+    if (!allowed || busy || savingShop || !shop) return;
+    savingShop = true;
     shopToggle.disabled = true;
     try { shop = preview ? { acceptingOrders: !shop.acceptingOrders } : await api.setShop(!shop.acceptingOrders); message(preview ? 'PREVIEW: shop availability changed locally.' : 'Shop availability updated for students.'); }
     catch (error) { message(error.message); }
-    finally { renderShop(); }
+    finally { savingShop = false; renderShop(); }
   });
   start().then(() => { renderShop(); scheduleEarningsTransition(); });
   // Fetch new approvals without erasing a receipt review being edited.
@@ -434,7 +436,7 @@
     if (preview || !allowed || busy || loading || polling || document.hidden) return;
     polling = true;
     try {
-      if (!earningsPage) await refreshShop();
+      if (!earningsPage && !savingShop) await refreshShop();
       const latest = (await api.operatorOrders()).orders;
       if (editing && !busy) {
         const fresh = observeOrders(latest, false);

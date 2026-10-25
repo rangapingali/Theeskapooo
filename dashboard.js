@@ -573,7 +573,7 @@
     let adminLink=document.getElementById('admin-nav'); if(!adminLink){adminLink=document.createElement('a');adminLink.id='admin-nav';adminLink.href='admin.html';adminLink.className='nav-item';adminLink.textContent='Admin dashboard';$('#operator-nav').after(adminLink);}adminLink.hidden=!admin;
   }
   function appointmentLabel(a) {
-    return 'Pay at the shop: ' + a.date + ' ? ' + a.time + ' IST. Pay by ' + new Date(a.deadlineMs).toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour:'numeric',minute:'2-digit'}) + ' IST to avoid cancellation.';
+    return 'Pay at the shop: ' + a.date + ' at ' + a.time + ' IST. Pay by ' + new Date(a.deadlineMs).toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour:'numeric',minute:'2-digit'}) + ' IST to avoid cancellation.';
   }
   function configurePaymentMode() {
     const offline = offlinePayment();
@@ -593,7 +593,7 @@
   }
   let reconnecting = false;
   async function reconnect(force = false) {
-    if (demo || !user || (!force && document.hidden) || working || reconnecting) return;
+    if (demo || !user || (!force && document.hidden) || working || reconnecting || $('#payment-dialog').open) return;
     reconnecting = true;
     try {
       if (force || !config.ordersEnabled || shopAccepting === null || (declarationMode() && !config.paymentsEnabled)) { config = await window.OrderService.configuration(); showServiceState(); await refreshAccess(); }
