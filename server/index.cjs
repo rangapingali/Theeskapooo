@@ -87,7 +87,7 @@ const mobilePrint = require('./mobile-print.cjs')({ db, bucket, paymentConfig })
 app.post('/api/mobile-print/manifest', mobilePrint.manifest);
 app.post('/api/mobile-print/redeem', protection.uploadSlots(1), mobilePrint.redeem);
 app.post('/api/mobile-print/result', mobilePrint.result);
-app.get('/healthz', (req, res) => res.status(storageReady ? 200 : 503).json({ status: storageReady ? 'ready' : 'reconnecting' }));
+require('./service-health.cjs').registerHealth(app, () => storageReady);
 app.get('/api/config', (req, res) => res.json({ ordersEnabled: ordersEnabled && storageReady, paymentsEnabled: paymentsEnabled && storageReady, serviceUnavailable: ordersEnabled && !storageReady, notificationSound: require('node:fs').existsSync(path.join(root, 'notification-voice.mp3')) ? '/notification-voice.mp3?v=voice-20261011' : null, paymentMode, merchantName, hours: { normal: '09:00-17:30', exam: '08:30-17:30', timezone: 'Asia/Kolkata' } }));
 const counters = new Map();
 setInterval(() => { const now = Date.now(); for (const [key, value] of counters) if (value.until < now) counters.delete(key); }, 60000).unref();
@@ -187,7 +187,7 @@ if (require.main === module) {
       if (checking || storageReady) return;
       checking = true;
       try { await bucket.check(); storageReady = true; require('./document-cleanup.cjs').startCleanup({ db, bucket }); require('./offline-numbers.cjs').startOfflineExpiry(db); }
-      catch { console.error('Document storage unavailable; website stays open. Retrying in 30 seconds.'); }
+      catch (error) { console.error('Document storage unavailable. ' + require('./service-health.cjs').storageDiagnostic(error) + ' Orders remain disabled; retrying in 30 seconds.'); }
       finally { checking = false; }
     };
     connectStorage(); setInterval(connectStorage, 30000).unref();
