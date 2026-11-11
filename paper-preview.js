@@ -20,6 +20,41 @@
   }
   root.PaperPreviewPlan = plan;
   if (typeof module !== 'undefined') { module.exports = plan; return; }
+  // Render originals without Chrome's embedded PDF plugin or an iframe.
+  root.DocumentPreview = (file, container) => {
+    let closed=false, loading, doc, pageNumber=1, rendering=false;
+    const status=document.createElement('p');status.setAttribute('role','status');status.textContent='Loading document preview...';
+    const controls=document.createElement('div');controls.className='paper-controls';
+    const previous=document.createElement('button'), next=document.createElement('button');
+    for(const button of [previous,next]) {button.type='button';button.className='secondary-action';button.disabled=true;}
+    previous.textContent='Previous page';next.textContent='Next page';controls.append(previous,next);
+    const canvas=document.createElement('canvas');canvas.style.cssText='display:block;max-width:100%;height:auto;margin:16px auto;background:white';
+    const download=document.createElement('a'); const url=URL.createObjectURL(file);
+    download.href=url;download.download=file.name;download.textContent='Download original file';download.className='quiet';
+    container.append(status,controls,canvas,download);
+    async function render() {
+      if(closed||rendering||!doc)return;rendering=true;previous.disabled=next.disabled=true;
+      try {
+        const page=await doc.getPage(pageNumber); if(closed)return;
+        const size=page.getViewport({scale:1}); const viewport=page.getViewport({scale:Math.min(1.5,1200/Math.max(size.width,size.height))});
+        canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+        await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+        if(!closed)status.textContent=`Page ${pageNumber} of ${doc.numPages}`;
+      } catch {if(!closed)status.textContent='Preview could not be displayed. Download the original to review it.';}
+      finally {rendering=false;if(!closed){previous.disabled=pageNumber===1;next.disabled=pageNumber===doc.numPages;}}
+    }
+    previous.onclick=()=>{if(!rendering){pageNumber--;render();}};next.onclick=()=>{if(!rendering){pageNumber++;render();}};
+    (async()=>{
+      try {
+        const lib=await import('/vendor/pdfjs/pdf.mjs');if(closed)return;
+        lib.GlobalWorkerOptions.workerSrc='/vendor/pdfjs/pdf.worker.mjs';
+        const data=new Uint8Array(await file.arrayBuffer());if(closed)return;
+        loading=lib.getDocument({data,isEvalSupported:false,useWasm:false,wasmUrl:'/vendor/pdfjs/wasm/',iccUrl:'/vendor/pdfjs/iccs/',cMapUrl:'/vendor/pdfjs/cmaps/',cMapPacked:true,standardFontDataUrl:'/vendor/pdfjs/standard_fonts/'});
+        doc=await loading.promise;await render();
+      } catch {if(!closed)status.textContent='Preview unavailable. Download the original to review it. Your print settings are unchanged.';}
+    })();
+    return ()=>{closed=true;loading?.destroy();URL.revokeObjectURL(url);};
+  };
   const host = document.querySelector('#paper-preview');
   if (!host) return;
   const $ = s => host.querySelector(s);

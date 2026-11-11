@@ -8,6 +8,7 @@
   let shopAccepting = null;
   let config = { ordersEnabled: false, paymentsEnabled: false }, working = false, previewURL = null, paymentOrder = null;
   let pendingSubmission = null;
+  let closeDocumentPreview = null;
   let checkoutDraft = null, confirmingPayment = false;
   const declarationMode = () => config.paymentMode === 'self_declared';
   const offlinePayment = () => $('[name=payment]:checked')?.value === 'offline';
@@ -280,18 +281,22 @@
   ['payment-date','payment-time'].forEach(id => $('#' + id).addEventListener('change', () => { pendingSubmission = null; updateSummary(); }));
   $('#preview-file').addEventListener('click', async () => {
     const item = files.find(file => file.id === selected); if (!item) return;
+    closeDocumentPreview?.(); closeDocumentPreview = null;
     if (previewURL) URL.revokeObjectURL(previewURL);
     const ext = item.file.name.split('.').pop().toLowerCase();
     $('#preview-title').textContent = item.file.name;
     const content = $('#preview-content'); content.replaceChildren();
     if (['jpg','jpeg','png','webp'].includes(ext)) { previewURL = URL.createObjectURL(item.file); const img = node('img'); img.src = previewURL; img.alt = item.file.name; content.append(img); }
-    else if (ext === 'pdf') { previewURL = URL.createObjectURL(new Blob([item.file], { type: 'application/pdf' })); const frame = node('iframe'); frame.title = 'PDF document preview'; frame.setAttribute('sandbox', 'allow-same-origin'); frame.src = previewURL; content.append(frame); content.append(node('p', 'If the browser cannot display this PDF, review the original file before ordering.', 'microcopy')); }
+    else if (ext === 'pdf') {
+      if (window.DocumentPreview) closeDocumentPreview = window.DocumentPreview(item.file, content);
+      else content.append(node('p', 'Preview could not load. Please refresh or review the original file before ordering.', 'microcopy'));
+    }
     else if (['txt','csv'].includes(ext)) { const text = await item.file.slice(0, 200000).text(); content.append(node('pre', text)); if (item.file.size > 200000) content.append(node('p', 'Preview limited to the first 200 KB.', 'microcopy')); }
     else content.append(node('p', `Format: ${ext.toUpperCase()} · Size: ${(item.file.size / 1024).toFixed(1)} KB. A visual preview is not available for this format. Review the original or export to PDF.`, 'microcopy'));
     $('#preview-dialog').showModal();
   });
   $('#close-preview').addEventListener('click', () => $('#preview-dialog').close());
-  $('#preview-dialog').addEventListener('close', () => { $('#preview-content').replaceChildren(); if (previewURL) URL.revokeObjectURL(previewURL); previewURL = null; });
+  $('#preview-dialog').addEventListener('close', () => { closeDocumentPreview?.(); closeDocumentPreview = null; $('#preview-content').replaceChildren(); if (previewURL) URL.revokeObjectURL(previewURL); previewURL = null; });
   function lock(value) {
     working = value;
     document.querySelectorAll('#new-view input, #new-view select, #new-view textarea, #new-view button').forEach(el => { el.disabled = value; });

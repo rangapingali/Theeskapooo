@@ -26,6 +26,19 @@ async function dashboard(preview = true, service = {}) {
   };
 }
 
+test('original PDF preview uses the in-page renderer and releases it on close', async () => {
+  const ui=await dashboard(); let opened=0,closed=0;
+  try {
+    ui.w.DocumentPreview=(file,host)=>{opened++;host.textContent='Page 1 of 5';return()=>closed++;};
+    await ui.add(['notes.pdf']);
+    ui.$('#preview-file').click();
+    assert.equal(opened,1);assert.equal(ui.$('#preview-dialog').open,true);
+    assert.equal(ui.$('#preview-content iframe'),null);
+    ui.$('#close-preview').click();assert.equal(closed,1);
+    assert.equal(ui.$('#preview-content').textContent,'');
+  } finally {ui.dom.window.close();}
+});
+
 test('shop settings show relevant duplex/copy options and survive step changes', async () => {
   const ui = await dashboard();
   try {
