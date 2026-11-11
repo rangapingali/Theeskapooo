@@ -111,6 +111,7 @@
       [...$('#layout').options].forEach(option => { const count = Number(option.value); option.textContent = `${count} page${count === 1 ? '' : 's'} per side`; });
     }
     renderFiles();
+    window.PaperPreview?.update(item);
   }
   function renderFiles() {
     const list = $('#file-list'); list.replaceChildren();
@@ -226,6 +227,7 @@
     renderTrendingPrints(); updateSummary();
   }
   function updateSummary() {
+    window.PaperPreview?.update(files.find(file => file.id === selected));
     const list = $('#summary-files'); list.replaceChildren(); let error = '';
     files.forEach(item => {
       const row = node('p'); row.append(node('span', item.file.name));
@@ -598,7 +600,7 @@
     try {
       if (force || !config.ordersEnabled || shopAccepting === null || (declarationMode() && !config.paymentsEnabled)) { config = await window.OrderService.configuration(); showServiceState(); await refreshAccess(); }
       await Promise.all([refreshShop(), refreshOrders(), refreshTrendingPrints()]);
-    } finally { reconnecting = false; }
+    } catch (error) { tell('#global-message', error.message || 'Connection unavailable. Your selections are still here.'); } finally { reconnecting = false; }
   }
   $('#retry-connection').addEventListener('click', async () => {
     const button = $('#retry-connection'); button.disabled = true; button.textContent = 'Checking connection…';

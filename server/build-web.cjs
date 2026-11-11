@@ -13,7 +13,7 @@ const publicFiles = ['staff.html','staff.js',
   'index.html', 'college-source.html', 'dashboard.html', 'operator.html', 'earnings.html', 'trending.html',
   'manifest.webmanifest', 'service-worker.js', 'pwa.js', 'pwa-icon-192.png', 'pwa-icon-512.png',
   'styles.css', 'dashboard.css', 'app.js', 'auth-service.js', 'firebase-config.js',
-  'print-core.js', 'order-service.js', 'dashboard.js', 'operator.js', 'trending.js', 'order-alerts.js',
+  'paper-preview.js', 'print-core.js', 'order-service.js', 'dashboard.js', 'operator.js', 'trending.js', 'order-alerts.js',
   'document-pages.js', 'document-pages-core.js', 'document-pages-worker.js',
   'tech-titans.svg', 'kitsw-logo.jpg', 'theeskapooo-logo.svg', 'theeskapooo-icon.svg',
   'notification-voice.mp3'
@@ -21,3 +21,8 @@ const publicFiles = ['staff.html','staff.js',
 for (const file of publicFiles) fs.copyFileSync(path.join(root, file), path.join(output, file));
 fs.copyFileSync(path.join(root, 'node_modules/pdf-lib/dist/pdf-lib.min.js'), path.join(output, 'vendor/pdf-lib.min.js'));
 console.log('Built dist with browser assets only. A separately deployed API is required for live orders.');
+
+fs.cpSync(path.join(root,'node_modules/pdfjs-dist/build'),path.join(output,'vendor/pdfjs'),{recursive:true});
+for(const dir of ['cmaps','standard_fonts','wasm','iccs']) fs.cpSync(path.join(root,'node_modules/pdfjs-dist',dir),path.join(output,'vendor/pdfjs',dir),{recursive:true});
+
+fs.copyFileSync(path.join(root,'node_modules/pdfjs-dist/LICENSE'),path.join(output,'vendor/pdfjs/LICENSE'));
