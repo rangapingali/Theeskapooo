@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8"><link rel="icon" type="image/svg+xml" href="theeskapooo-icon.svg"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#214f3c"><link rel="manifest" href="manifest.webmanifest"><title>Student dashboard · THEESKAPOOO</title>
-  <link rel="stylesheet" href="styles.css?v=mobile-security-20261011"><link rel="stylesheet" href="dashboard.css?v=preview-fix-20261111">
+  <link rel="stylesheet" href="styles.css?v=mobile-security-20261011"><link rel="stylesheet" href="dashboard.css?v=floating-paper-20261112">
   <script src="pwa.js" defer></script>
   <script src="firebase-config.js" defer></script><script src="auth-service.js?v=roles-20261015" defer></script>
-  <script src="document-pages.js?v=preview-fix-20261111" defer></script><script src="print-core.js?v=shop-prepared-20261014" defer></script><script src="order-service.js?v=shop-printers-20261016" defer></script><script src="order-alerts.js?v=flow-20261011" defer></script><script src="paper-preview.js?v=preview-fix-20261111" defer></script><script src="dashboard.js?v=preview-fix-20261111" defer></script>
+  <script src="document-pages.js?v=floating-paper-20261112" defer></script><script src="print-core.js?v=shop-prepared-20261014" defer></script><script src="order-service.js?v=shop-printers-20261016" defer></script><script src="order-alerts.js?v=flow-20261011" defer></script><script src="paper-preview.js?v=floating-paper-20261112" defer></script><script src="dashboard.js?v=floating-paper-20261112" defer></script>
 </head>
 <body class="dashboard">
   <aside class="sidebar">
@@ -57,13 +57,10 @@
           </section>
         </div>
         <aside id="paper-preview" class="panel" data-step-panel="2" hidden aria-label="Interactive paper preview">
-          <h2>Your paper, in 3D</h2><a class="paper-jump quiet" href="#settings-panel">Back to print settings</a><p>Preview the selected document. Turn the paper to check both sides.</p>
-          <div class="paper-stage"><div class="paper-object" hidden></div></div>
+          <h2>Your paper, in 3D</h2><a class="paper-jump quiet" href="#settings-panel">Back to print settings</a><p>Your document, floating in view. Explore both sides.</p>
+          <div class="paper-stage" tabindex="0" role="group" aria-label="Rotatable paper preview. Drag to rotate. Arrow keys rotate; Home resets."><button id="paper-motion" type="button" class="paper-motion" aria-pressed="false" aria-label="Pause automatic rotation">Pause motion</button><div class="paper-orbit"><div class="paper-object" hidden></div></div><span class="paper-gesture">Move to explore / Drag to turn</span></div>
           <p id="paper-status" role="status">Choose a document to preview.</p>
           <div class="paper-controls"><button id="paper-prev" type="button" class="secondary-action">Previous sheet</button><button id="paper-next" type="button" class="secondary-action">Next sheet</button></div>
-          <label>Rotate 360 degrees<input id="paper-turn" type="range" min="0" max="360" value="0"></label>
-          <label>Tilt / turn over top edge<input id="paper-tilt" type="range" min="-180" max="180" value="0"></label>
-          <div class="paper-controls"><button id="paper-flip" type="button" class="secondary-action">Turn over</button><button id="paper-reset" type="button" class="secondary-action">Reset view</button></div>
           <p class="paper-note">Layout preview, not a printer proof. Colour and margins can vary. Check the original for forms or annotations. Preview stays on your device.</p>
         </aside>
         <aside class="order-summary panel" data-step-panel="3" hidden><div class="summary-top"><h2>Your print summary</h2><span aria-hidden="true">▤</span></div><div id="summary-files" class="summary-files">Your selections appear here.</div><dl><div><dt>Print items</dt><dd id="total-files">0</dd></div><div><dt>Printed sides</dt><dd id="total-sides">0</dd></div><div><dt>Sheets of paper</dt><dd id="total-sheets">0</dd></div></dl><p id="priority-summary" class="priority-badge" hidden>Priority fee: ₹8</p><div class="price-row"><span>Order total</span><strong id="total-price">₹0.00</strong></div><p class="estimate-note">₹5 B&amp;W / ₹10 colour per printed side. Binding unavailable; no double-sided discount.</p><div class="time-estimate"><span aria-hidden="true">◷</span><div><strong id="total-time">Choose a print item</strong><small>Print time only; queue and shop hours may add time.</small></div></div><p id="summary-error" class="inline-message" role="status" hidden></p><label class="consent"><input id="review-confirm" type="checkbox"><span>I have checked my files and print settings.</span></label><button type="button" id="place-order" class="primary-action" disabled>Place order <span aria-hidden="true">→</span></button><p id="checkout-status" class="notice" role="status"></p><button id="retry-connection" class="secondary-action" type="button" hidden>Check connection</button><p id="checkout-error" class="inline-message" role="alert" hidden></p><p id="upload-progress" role="status" class="microcopy"></p><p class="summary-footnote">Total includes print items and any priority fee.</p></aside>

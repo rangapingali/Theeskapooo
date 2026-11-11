@@ -328,3 +328,18 @@
 .paper-object{transition:transform .12s ease-out}.paper-jump{display:inline-block;margin-bottom:12px;min-height:44px;padding:10px 0}#paper-preview,#settings-panel{scroll-margin-top:20px}
 @media(prefers-reduced-motion:reduce){.paper-object{transition:none}}
 @media(max-width:760px){.dashboard:not(.shop-dashboard) .dashboard-main{padding-bottom:160px}.dashboard:not(.shop-dashboard){scroll-padding-bottom:150px}.dashboard:not(.shop-dashboard) button,.dashboard:not(.shop-dashboard) input{scroll-margin-bottom:150px}}
+/* Floating document stage: keep controls out of the paper's workspace. */
+.dashboard .order-layout[data-current-step="2"]{max-width:1200px;grid-template-columns:minmax(0,1fr) minmax(340px,1.15fr)}
+#paper-preview{background:linear-gradient(150deg,#f9fcfa,#edf5f2);border-color:#c6ded5;box-shadow:0 16px 45px #153c2910}
+.paper-stage{position:relative;height:540px;background:radial-gradient(ellipse at 50% 43%,#254f4e 0%,#102f32 48%,#091d25 100%);border:1px solid #40615e;isolation:isolate;cursor:grab;touch-action:pan-y}
+.paper-stage:active{cursor:grabbing}.paper-stage:before{content:'';position:absolute;bottom:34px;width:70%;height:60px;border:1px solid #71e1c960;border-radius:50%;box-shadow:0 0 35px #5edbc333,inset 0 0 24px #5edbc322;transform:rotateX(60deg)}
+.paper-orbit{width:100%;height:100%;display:flex;align-items:center;justify-content:center;transform-style:preserve-3d;animation:paper-hover 28s linear infinite}
+.paper-object{max-width:440px;max-height:none;flex-shrink:0;transition:transform .15s ease-out;will-change:transform}
+.paper-face{box-shadow:0 18px 40px #0005,0 0 22px #a8ffe52b;border:1px solid #d5f0e8}
+.paper-motion{position:absolute;top:12px;right:12px;z-index:3;border:1px solid #bce6d955;border-radius:20px;background:#102f32;color:#e1fff5;padding:8px 14px;min-height:40px;font-size:13px}
+.paper-gesture{position:absolute;bottom:15px;color:#c2e6de;font-size:13px;pointer-events:none;letter-spacing:.4px}
+.paper-stage:hover .paper-orbit,.paper-stage:focus-within .paper-orbit,.paper-stage.interacting .paper-orbit,.paper-stage.motion-paused .paper-orbit,.paper-stage.offscreen .paper-orbit,.paper-stage.tab-hidden .paper-orbit{animation-play-state:paused}
+@keyframes paper-hover{0%{transform:translateY(-6px) rotateY(0deg) rotateX(5deg)}25%{transform:translateY(6px) rotateY(90deg) rotateX(5deg)}50%{transform:translateY(-6px) rotateY(180deg) rotateX(5deg)}75%{transform:translateY(6px) rotateY(270deg) rotateX(5deg)}100%{transform:translateY(-6px) rotateY(360deg) rotateX(5deg)}}
+@media(max-width:1050px){.dashboard .order-layout[data-current-step="2"]{grid-template-columns:minmax(0,1fr)}.paper-stage{height:520px}.paper-object{max-width:310px}}
+@media(max-width:600px){.paper-stage{height:420px}.paper-object{max-width:260px}}
+@media(prefers-reduced-motion:reduce){.paper-orbit{animation:none}.paper-object{transition:none}.paper-motion{display:none}}

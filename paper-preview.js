@@ -61,10 +61,31 @@
   let item, signature='', timer, revision=0, sheet=0, loadedFile, pdf, bitmap, task, busy=false, pending=false;
   let yaw=0, pitch=0;
   function rotate() { $('.paper-object').style.transform=`rotateX(${pitch}deg) rotateY(${yaw}deg)`; }
-  $('#paper-turn').oninput=e=>{yaw=Number(e.target.value);rotate();};
-  $('#paper-tilt').oninput=e=>{pitch=Number(e.target.value);rotate();};
-  $('#paper-reset').onclick=()=>{yaw=pitch=0;$('#paper-turn').value=$('#paper-tilt').value=0;rotate();};
-  $('#paper-flip').onclick=()=>{yaw=yaw===180?0:180;$('#paper-turn').value=yaw;rotate();};
+  const stage=$('.paper-stage'); let drag=null;
+  $('#paper-motion').onclick=()=>{
+    const paused=stage.classList.toggle('motion-paused');
+    $('#paper-motion').setAttribute('aria-pressed',String(paused));
+    $('#paper-motion').textContent=paused?'Resume motion':'Pause motion';
+    $('#paper-motion').setAttribute('aria-label',paused?'Resume automatic rotation':'Pause automatic rotation');
+  };
+  stage.addEventListener('pointerdown',e=>{
+    if(e.target.closest('button'))return;
+    drag={x:e.clientX,y:e.clientY,yaw,pitch};stage.setPointerCapture(e.pointerId);stage.classList.add('interacting');
+  });
+  stage.addEventListener('pointermove',e=>{
+    if(drag){yaw=drag.yaw+(e.clientX-drag.x)*.8;pitch=Math.max(-180,Math.min(180,drag.pitch-(e.clientY-drag.y)*.5));}
+    else if(e.pointerType==='mouse') {const r=stage.getBoundingClientRect();yaw=((e.clientX-r.left)/r.width-.5)*60;pitch=-((e.clientY-r.top)/r.height-.5)*25;}
+    rotate();
+  });
+  const endDrag=()=>{drag=null;stage.classList.remove('interacting');};
+  stage.addEventListener('pointerup',endDrag);stage.addEventListener('pointercancel',endDrag);
+  stage.addEventListener('keydown',e=>{
+    if(e.target!==stage)return;
+    if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home'].includes(e.key))return;
+    e.preventDefault();if(e.key==='Home'){yaw=pitch=0;}else if(e.key==='ArrowLeft')yaw-=15;else if(e.key==='ArrowRight')yaw+=15;else if(e.key==='ArrowUp')pitch-=15;else pitch+=15;rotate();
+  });
+  if(window.IntersectionObserver) new IntersectionObserver(entries=>stage.classList.toggle('offscreen',!entries[0].isIntersecting)).observe(stage);
+  document.addEventListener('visibilitychange',()=>stage.classList.toggle('tab-hidden',document.hidden));
   $('#paper-prev').onclick=()=>{sheet--;schedule();};
   $('#paper-next').onclick=()=>{sheet++;schedule();};
   function schedule() { revision++; clearTimeout(timer); timer=setTimeout(render,180); }
@@ -82,7 +103,7 @@
   }
   async function face(canvas, pages, s) {
     const landscape=s.orientation==='landscape';
-    canvas.width=landscape?600:424;canvas.height=landscape?424:600;
+    canvas.width=landscape?1000:707;canvas.height=landscape?707:1000;
     const ctx=canvas.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);
     const cols=s.layout===4 || s.layout===2&&landscape?2:1, rows=s.layout/cols;
     const cw=canvas.width/cols,ch=canvas.height/rows, margin=18*canvas.width/(landscape?841.89:595.28);
@@ -116,7 +137,7 @@
       front.className='paper-face';back.className='paper-face paper-back';
       $('.paper-object').replaceChildren(front,back);
       $('.paper-object').style.aspectRatio=s.orientation==='landscape'?'297 / 210':'210 / 297';
-      $('.paper-object').style.width=s.orientation==='landscape'?'90%':'64%';
+      $('.paper-object').style.width=s.orientation==='landscape'?'86%':'70%';
       // The physical flip axis determines how the reverse appears after turning the sheet.
       back.style.transform=s.duplexEdge==='top-bottom'?'rotateX(180deg)':'rotateY(180deg)';
       $('.paper-object').hidden=false;
